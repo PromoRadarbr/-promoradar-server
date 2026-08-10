@@ -113,6 +113,70 @@ app.get("/test-ml", async (req, res) => {
     res.status(500).send("Erro ao consultar o Mercado Livre.");
   }
 });
+// Busca produtos no Mercado Livre
+app.get("/buscar", async (req, res) => {
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({
+      erro: "Informe o produto. Exemplo: /buscar?q=iphone"
+    });
+  }
+
+  if (!accessToken) {
+    return res.status(401).send(
+      "PromoRadar ainda não está autorizado."
+    );
+  }
+
+  try {
+    const url =
+      `https://api.mercadolibre.com/sites/MLB/search` +
+      `?q=${encodeURIComponent(q)}` +
+      `&limit=10`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Erro na busca:", data);
+      return res.status(response.status).json(data);
+    }
+
+    const produtos = data.results.map((item) => ({
+      id: item.id,
+      titulo: item.title,
+      preco: item.price,
+      preco_original: item.original_price,
+      desconto: item.original_price
+        ? Math.round(
+            ((item.original_price - item.price) /
+              item.original_price) *
+              100
+          )
+        : 0,
+      imagem: item.thumbnail,
+      link: item.permalink
+    }));
+
+    res.json({
+      busca: q,
+      total: data.paging.total,
+      produtos
+    });
+
+  } catch (error) {
+    console.error("Erro ao buscar produtos:", error);
+    res.status(500).send(
+      "Erro ao buscar produtos no Mercado Livre."
+    );
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
