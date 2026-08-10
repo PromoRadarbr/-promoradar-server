@@ -135,11 +135,7 @@ app.get("/buscar", async (req, res) => {
       `?q=${encodeURIComponent(q)}` +
       `&limit=10`;
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+    const response = await fetch(url);
 
     const data = await response.json();
 
