@@ -1,7 +1,7 @@
 const express = require("express");
 
 const app = express();
-
+let accessToken = null;
 app.use(express.json());
 
 // Página inicial
@@ -60,7 +60,7 @@ app.get("/auth/callback", async (req, res) => {
     }
 
     console.log("Mercado Livre conectado. Usuário:", data.user_id);
-
+    accessToken = data.access_token;
     res.send(`
       <h1>PromoRadar conectado!</h1>
       <p>Autorização realizada com sucesso.</p>
@@ -78,7 +78,41 @@ app.post("/notifications", (req, res) => {
   console.log("Notificação recebida:", req.body);
   res.sendStatus(200);
 });
+// Testa a conexão com a API do Mercado Livre
+app.get("/test-ml", async (req, res) => {
+  if (!accessToken) {
+    return res.status(401).send("PromoRadar ainda não está autorizado.");
+  }
 
+  try {
+    const response = await fetch(
+      "https://api.mercadolibre.com/users/me",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Erro na API do Mercado Livre:", data);
+      return res.status(response.status).json(data);
+    }
+
+    res.json({
+      conectado: true,
+      usuario: data.nickname,
+      id: data.id,
+      pais: data.country_id
+    });
+
+  } catch (error) {
+    console.error("Erro:", error);
+    res.status(500).send("Erro ao consultar o Mercado Livre.");
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
