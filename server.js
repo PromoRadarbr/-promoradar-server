@@ -4,6 +4,7 @@ const app = express();
 
 app.use(express.json());
 
+// Página inicial
 app.get("/", (req, res) => {
   res.send("PromoRadar online!");
 });
@@ -22,7 +23,57 @@ app.get("/auth", (req, res) => {
   res.redirect(authUrl);
 });
 
-// Recebe as notificações do Mercado Livre
+// Recebe o código de autorização do Mercado Livre
+app.get("/auth/callback", async (req, res) => {
+  const { code } = req.query;
+
+  if (!code) {
+    return res.status(400).send("Código de autorização não recebido.");
+  }
+
+  try {
+    const response = await fetch(
+      "https://api.mercadolibre.com/oauth/token",
+      {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: process.env.ML_CLIENT_ID,
+          client_secret: process.env.ML_CLIENT_SECRET,
+          code: code,
+          redirect_uri: process.env.ML_REDIRECT_URI
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Erro OAuth:", data);
+      return res
+        .status(response.status)
+        .send("Erro ao conectar com o Mercado Livre.");
+    }
+
+    console.log("Mercado Livre conectado. Usuário:", data.user_id);
+
+    res.send(`
+      <h1>PromoRadar conectado!</h1>
+      <p>Autorização realizada com sucesso.</p>
+      <p>Usuário Mercado Livre: ${data.user_id}</p>
+    `);
+
+  } catch (error) {
+    console.error("Erro:", error);
+    res.status(500).send("Erro interno ao conectar com o Mercado Livre.");
+  }
+});
+
+// Recebe notificações do Mercado Livre
 app.post("/notifications", (req, res) => {
   console.log("Notificação recebida:", req.body);
   res.sendStatus(200);
