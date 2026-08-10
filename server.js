@@ -123,11 +123,7 @@ app.get("/buscar", async (req, res) => {
     });
   }
 
-  if (!accessToken) {
-    return res.status(401).send(
-      "PromoRadar ainda não está autorizado."
-    );
-  }
+  
 
   try {
     const url =
