@@ -553,41 +553,52 @@ app.post("/notifications", async (req, res) => {
 
     console.log("NOTIFICAÇÃO RECEBIDA:");
     console.log(JSON.stringify(dados, null, 2));
-if (dados?.event === "messages.post") {
-  console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
-  return res.sendStatus(200);
-}
-    const mensagem =
-  dados?.data?.messages ||
-  dados?.messages?.[0] ||
-  dados?.[0] ||
-  dados;
+    // Ignora mensagens enviadas pelo próprio PromoRadar
+    const mensagemRecebida =
+      dados?.data?.messages ||
+      dados?.messages?.[0] ||
+      dados?.[0] ||
+      dados;
 
-const texto =
-  mensagem?.message?.imageMessage?.caption ||
-  mensagem?.imageMessage?.caption ||
-  mensagem?.caption ||
-  mensagem?.messageBody ||
-  mensagem?.message?.conversation ||
-  mensagem?.text?.body ||
-  mensagem?.text ||
-  mensagem?.body ||
-  "";
+    if (
+      mensagemRecebida?.key?.fromMe === true ||
+      mensagemRecebida?.fromMe === true
+    ) {
+      console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
+      return res.sendStatus(200);
+    }
+
+    const mensagem =
+      dados?.data?.messages ||
+      dados?.messages?.[0] ||
+      dados?.[0] ||
+      dados;
+
+    const texto =
+      mensagem?.message?.imageMessage?.caption ||
+      mensagem?.imageMessage?.caption ||
+      mensagem?.caption ||
+      mensagem?.messageBody ||
+      mensagem?.message?.conversation ||
+      mensagem?.text?.body ||
+      mensagem?.text ||
+      mensagem?.body ||
+      "";
 
     console.log("TEXTO DA MENSAGEM:", texto);
 
     // Preço
     const precosEncontrados = [
-  ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/gi)
-];
+      ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/g)
+    ];
 
-const precoOriginal = precosEncontrados[0]
-  ? precosEncontrados[0][1]
-  : null;
+    const precoOriginal = precosEncontrados[0]
+      ? precosEncontrados[0][1]
+      : null;
 
-const precoAtual = precosEncontrados[1]
-  ? precosEncontrados[1][1]
-  : precoOriginal;
+    const precoAtual = precosEncontrados[1]
+      ? precosEncontrados[1][1]
+      : precoOriginal;
 
     // Link
     const linkEncontrado = texto.match(
@@ -600,17 +611,24 @@ const precoAtual = precosEncontrados[1]
       .map(linha => linha.trim())
       .filter(Boolean);
 
-    const produto =
+    const produtoEncontrado =
       linhas.find(linha =>
-        !/oferta/i.test(linha) &&
+        !/oferta imperdível/i.test(linha) &&
         !/R\$/i.test(linha) &&
-        !/https?:\/\//i.test(linha)
-      ) || "Produto não identificado";
+        !/https?:\/\//i.test(linha) &&
+        !/^\d+%\s*OFF/i.test(linha)
+      );
 
-    const oferta = {
-  produto: produto,
-  precoOriginal: precoOriginal,
-  precoAtual: precoAtual,
+    const produto = produtoEncontrado
+      ? produtoEncontrado
+          .replace(/^🛍️\s*/u, "")
+          .trim()
+      : "Produto não identificado";
+
+   const oferta = {
+  produto,
+  precoOriginal,
+  precoAtual,
   link: linkEncontrado
     ? linkEncontrado[0]
     : null
