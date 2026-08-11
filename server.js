@@ -254,11 +254,6 @@ app.get("/ofertas", async (req, res) => {
     const searchData = await searchResponse.json();
 
     if (!searchResponse.ok) {
-      console.error(
-        "Erro na busca de produtos:",
-        searchData
-      );
-
       return res
         .status(searchResponse.status)
         .json(searchData);
@@ -267,8 +262,10 @@ app.get("/ofertas", async (req, res) => {
     const ofertas = [];
 
     for (const produto of searchData.results || []) {
+      const idsParaConsultar = [produto.id];
+
       try {
-        const productResponse = await fetch(
+        const detalheResponse = await fetch(
           `https://api.mercadolibre.com/products/${produto.id}`,
           {
             headers: {
@@ -277,59 +274,21 @@ app.get("/ofertas", async (req, res) => {
           }
         );
 
-        if (!productResponse.ok) {
-          console.log(
-            "Produto ignorado:",
-            produto.id,
-            productResponse.status
-          );
+        if (!detalheResponse.ok) {
           continue;
         }
 
-        const productData =
-          await productResponse.json();
+        const detalhe = await detalheResponse.json();
 
-        const winner =
-          productData.buy_box_winner;
-
-        if (!winner || !winner.item_id) {
-          continue;
-        }
-
-        const preco =
-          winner.price ?? null;
-
-        const precoOriginal =
-          winner.original_price ?? null;
-
-        let desconto = 0;
-
+        // Se for produto pai, adiciona os filhos
         if (
-          precoOriginal &&
-          preco &&
-          precoOriginal > preco
+          Array.isArray(detalhe.children_ids) &&
+          detalhe.children_ids.length > 0
         ) {
-          desconto = Math.round(
-            ((precoOriginal - preco) /
-              precoOriginal) *
-              100
+          idsParaConsultar.push(
+            ...detalhe.children_ids.slice(0, 10)
           );
         }
-
-        ofertas.push({
-          product_id: productData.id,
-          item_id: winner.item_id,
-          titulo: productData.name || null,
-          preco: preco,
-          preco_original: precoOriginal,
-          desconto: desconto,
-          moeda: winner.currency_id || null,
-          vendedor: winner.seller_id || null,
-          condicao: winner.condition || null,
-          imagem:
-            productData.pictures?.[0]?.url || null,
-          link: productData.permalink || null
-        });
 
       } catch (error) {
         console.error(
@@ -337,20 +296,128 @@ app.get("/ofertas", async (req, res) => {
           produto.id,
           error
         );
+
+        continue;
+      }
+
+      for (const productId of idsParaConsultar) {
+        try {
+          const productResponse = await fetch(
+            `https://api.mercadolibre.com/products/${productId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`
+              }
+            }
+          );
+
+          if (!productResponse.ok) {
+            continue;
+          }
+
+          const productData =
+            await productResponse.json();
+
+          const winner =
+            productData.buy_box_winner;
+
+          if (!winner || !winner.item_id) {
+            continue;
+          }
+
+          const preco =
+            winner.price ?? null;
+
+          const precoOriginal =
+            winner.original_price ?? null;
+
+          let desconto = 0;
+
+          if (
+            precoOriginal &&
+            preco &&
+            precoOriginal > preco
+          ) {
+            desconto = Math.round(
+              ((precoOriginal - preco) /
+                precoOriginal) *
+                100
+            );
+          }
+
+          ofertas.push({
+            product_id:
+              productData.id,
+
+            item_id:
+              winner.item_id,
+
+            titulo:
+              productData.name || null,
+
+            preco:
+              preco,
+
+            preco_original:
+              precoOriginal,
+
+            desconto:
+              desconto,
+
+            moeda:
+              winner.currency_id || null,
+
+            vendedor:
+              winner.seller_id || null,
+
+            condicao:
+              winner.condition || null,
+
+            imagem:
+              productData.pictures?.[0]?.url ||
+              null,
+
+            link:
+              productData.permalink || null
+          });
+
+        } catch (error) {
+          console.error(
+            "Erro ao consultar produto filho:",
+            productId,
+            error
+          );
+        }
       }
     }
 
-    ofertas.sort(
-      (a, b) => b.desconto - a.desconto
+    // Remove possíveis duplicados
+    const ofertasUnicas = Array.from(
+      new Map(
+        ofertas.map((oferta) => [
+          oferta.item_id,
+          oferta
+        ])
+      ).values()
+    );
+
+    // Melhores descontos primeiro
+    ofertasUnicas.sort(
+      (a, b) =>
+        b.desconto - a.desconto
     );
 
     res.json({
       busca: q,
+
       produtos_encontrados:
         searchData.results?.length || 0,
+
       ofertas_encontradas:
-        ofertas.length,
-      ofertas
+        ofertasUnicas.length,
+
+      ofertas:
+        ofertasUnicas
     });
 
   } catch (error) {
