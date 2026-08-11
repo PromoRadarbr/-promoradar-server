@@ -449,7 +449,75 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 });
+// =====================================================
+// DIAGNÓSTICO MERCADO LIVRE
+// =====================================================
 
+app.get("/diagnostico-ml", async (req, res) => {
+  if (!accessToken) {
+    return res.status(401).json({
+      autorizado: false,
+      mensagem: "PromoRadar ainda não está autorizado."
+    });
+  }
+
+  const resultado = {};
+
+  try {
+    // TESTE 1 — usuário autenticado
+    const meResponse = await fetch(
+      "https://api.mercadolibre.com/users/me",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    resultado.users_me = {
+      status: meResponse.status,
+      dados: await meResponse.json()
+    };
+
+    // TESTE 2 — busca COM token
+    const searchComToken = await fetch(
+      "https://api.mercadolibre.com/sites/MLB/search?q=iphone&limit=5",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    resultado.search_com_token = {
+      status: searchComToken.status,
+      dados: await searchComToken.json()
+    };
+
+    // TESTE 3 — busca SEM token
+    const searchSemToken = await fetch(
+      "https://api.mercadolibre.com/sites/MLB/search?q=iphone&limit=5"
+    );
+
+    resultado.search_sem_token = {
+      status: searchSemToken.status,
+      dados: await searchSemToken.json()
+    };
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error(
+      "ERRO DIAGNÓSTICO:",
+      error
+    );
+
+    res.status(500).json({
+      erro: "Erro ao executar diagnóstico.",
+      detalhe: error.message
+    });
+  }
+});
 
 // =====================================================
 // NOTIFICAÇÕES MERCADO LIVRE
