@@ -262,12 +262,30 @@ app.get("/ofertas", async (req, res) => {
     // 1. ENCONTRAR PRODUTOS DE CATÁLOGO
     // -------------------------------------------------
 
-    const searchUrl =
-      "https://api.mercadolibre.com/products/search" +
-      "?status=active" +
-      "&site_id=MLB" +
-      `&q=${encodeURIComponent(q)}` +
-      "&limit=20";
+    const domainResponse = await fetch(
+  "https://api.mercadolibre.com/sites/MLB/domain_discovery/search" +
+  `?q=${encodeURIComponent(q)}`,
+  {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  }
+);
+
+const domains = await domainResponse.json();
+
+const domainId =
+  domains?.[0]?.domain_id || null;
+
+const searchUrl =
+  "https://api.mercadolibre.com/products/search" +
+  "?status=active" +
+  "&site_id=MLB" +
+  `&q=${encodeURIComponent(q)}` +
+  (domainId
+    ? `&domain_id=${encodeURIComponent(domainId)}`
+    : "") +
+  "&limit=20";
 
     const searchResponse =
       await fetch(searchUrl, {
