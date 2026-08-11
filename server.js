@@ -240,7 +240,8 @@ app.get("/ofertas", async (req, res) => {
         Authorization: `Bearer ${accessToken}`
       }
     });
-
+console.log("BUSCA STATUS:", response.status);
+console.log("BUSCA URL:", url);
     const data = await response.json();
 
     if (!response.ok) {
