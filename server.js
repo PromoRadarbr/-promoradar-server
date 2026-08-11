@@ -609,7 +609,41 @@ const precoAtual = precosEncontrados[1]
 
     console.log("OFERTA IDENTIFICADA:");
     console.log(JSON.stringify(oferta, null, 2));
+    // MENSAGEM PRONTA PARA PUBLICAÇÃO
 
+    const valorOriginal = oferta.precoOriginal
+      ? Number(oferta.precoOriginal.replace(/\./g, "").replace(",", "."))
+      : null;
+
+    const valorAtual = oferta.precoAtual
+      ? Number(oferta.precoAtual.replace(/\./g, "").replace(",", "."))
+      : null;
+
+    let desconto = "";
+
+    if (valorOriginal && valorAtual && valorOriginal > valorAtual) {
+      const percentual = Math.round(
+        ((valorOriginal - valorAtual) / valorOriginal) * 100
+      );
+
+      desconto = `📉 ${percentual}% OFF`;
+    }
+
+    const mensagemOferta = `🔥 OFERTA IMPERDÍVEL
+
+🛍️ ${oferta.produto}
+
+❌ De R$ ${oferta.precoOriginal || "Consultar"}
+💰 Por R$ ${oferta.precoAtual || "Consultar"}
+
+${desconto}
+
+🔗 ${oferta.link || "Link indisponível"}
+
+⚡ PromoRadar | Ofertas`;
+
+    console.log("MENSAGEM PRONTA:");
+    console.log(mensagemOferta);
     res.sendStatus(200);
 
   } catch (error) {
