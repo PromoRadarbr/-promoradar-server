@@ -18,7 +18,7 @@ app.get("/", (req, res) => {
 
 
 // =====================================================
-// AUTORIZAÇÃO
+// AUTORIZAÇÃO MERCADO LIVRE
 // =====================================================
 
 app.get("/auth", (req, res) => {
@@ -95,9 +95,23 @@ app.get("/auth/callback", async (req, res) => {
     );
 
     res.send(`
-      <h1>PromoRadar conectado!</h1>
-      <p>Autorização realizada com sucesso.</p>
-      <p>Usuário Mercado Livre: ${data.user_id}</p>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>PromoRadar</title>
+        </head>
+
+        <body style="font-family: Arial; padding: 30px;">
+          <h1>PromoRadar conectado!</h1>
+
+          <p>Autorização realizada com sucesso.</p>
+
+          <p>
+            Usuário Mercado Livre:
+            <strong>${data.user_id}</strong>
+          </p>
+        </body>
+      </html>
     `);
 
   } catch (error) {
@@ -111,10 +125,11 @@ app.get("/auth/callback", async (req, res) => {
 
 
 // =====================================================
-// TESTAR MERCADO LIVRE
+// TESTAR CONEXÃO
 // =====================================================
 
 app.get("/test-ml", async (req, res) => {
+
   if (!accessToken) {
     return res.status(401).json({
       conectado: false,
@@ -124,6 +139,7 @@ app.get("/test-ml", async (req, res) => {
   }
 
   try {
+
     const response = await fetch(
       "https://api.mercadolibre.com/users/me",
       {
@@ -144,17 +160,25 @@ app.get("/test-ml", async (req, res) => {
 
     res.json({
       conectado: true,
-      usuario: data.nickname || null,
-      id: data.id || null,
-      pais: data.country_id || null
+      usuario:
+        data.nickname || null,
+      id:
+        data.id || null,
+      pais:
+        data.country_id || null
     });
 
   } catch (error) {
-    console.error("ERRO /test-ml:", error);
+
+    console.error(
+      "ERRO /test-ml:",
+      error
+    );
 
     res.status(500).json({
       conectado: false,
-      erro: "Erro ao consultar o Mercado Livre."
+      erro:
+        "Erro ao consultar o Mercado Livre."
     });
   }
 });
@@ -165,6 +189,7 @@ app.get("/test-ml", async (req, res) => {
 // =====================================================
 
 app.get("/buscar", async (req, res) => {
+
   const { q } = req.query;
 
   if (!q) {
@@ -182,6 +207,7 @@ app.get("/buscar", async (req, res) => {
   }
 
   try {
+
     const url =
       "https://api.mercadolibre.com/products/search" +
       "?status=active" +
@@ -189,14 +215,18 @@ app.get("/buscar", async (req, res) => {
       `&q=${encodeURIComponent(q)}` +
       "&limit=20";
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization:
-          `Bearer ${accessToken}`
+    const response = await fetch(
+      url,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`
+        }
       }
-    });
+    );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!response.ok) {
       return res
@@ -205,28 +235,38 @@ app.get("/buscar", async (req, res) => {
     }
 
     const produtos =
-      (data.results || []).map((item) => ({
-        product_id:
-          item.id || null,
+      (data.results || []).map(
+        (item) => ({
+          product_id:
+            item.id || null,
 
-        titulo:
-          item.name || null,
+          titulo:
+            item.name || null,
 
-        imagem:
-          item.pictures?.[0]?.url || null
-      }));
+          imagem:
+            item.pictures?.[0]?.url ||
+            null
+        })
+      );
 
     res.json({
       busca: q,
+
       produtos_encontrados:
         produtos.length,
+
       total:
         data.paging?.total || 0,
+
       produtos
     });
 
   } catch (error) {
-    console.error("ERRO /buscar:", error);
+
+    console.error(
+      "ERRO /buscar:",
+      error
+    );
 
     res.status(500).json({
       erro:
@@ -241,6 +281,7 @@ app.get("/buscar", async (req, res) => {
 // =====================================================
 
 app.get("/ofertas", async (req, res) => {
+
   const { q } = req.query;
 
   if (!q) {
@@ -260,7 +301,7 @@ app.get("/ofertas", async (req, res) => {
   try {
 
     // -------------------------------------------------
-    // 1. BUSCAR PRODUTOS DE CATÁLOGO
+    // 1. BUSCAR PRODUTOS DO CATÁLOGO
     // -------------------------------------------------
 
     const searchUrl =
@@ -275,15 +316,16 @@ app.get("/ofertas", async (req, res) => {
       searchUrl
     );
 
-    const searchResponse = await fetch(
-      searchUrl,
-      {
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`
+    const searchResponse =
+      await fetch(
+        searchUrl,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`
+          }
         }
-      }
-    );
+      );
 
     const searchData =
       await searchResponse.json();
@@ -301,7 +343,7 @@ app.get("/ofertas", async (req, res) => {
 
 
     // -------------------------------------------------
-    // 2. BUSCAR PUBLICAÇÕES DOS PRODUTOS
+    // 2. BUSCAR SOMENTE PRODUTOS COM DESCONTO
     // -------------------------------------------------
 
     const ofertas = [];
@@ -314,7 +356,9 @@ app.get("/ofertas", async (req, res) => {
       try {
 
         const itemsUrl =
-          `https://api.mercadolibre.com/products/${produto.id}/items?limit=20`;
+          `https://api.mercadolibre.com/products/${produto.id}/items` +
+          "?discount=10-100" +
+          "&limit=20";
 
         const itemsResponse =
           await fetch(
@@ -335,11 +379,17 @@ app.get("/ofertas", async (req, res) => {
           produto.id,
           "STATUS:",
           itemsResponse.status,
-          "PUBLICAÇÕES:",
+          "OFERTAS:",
           itemsData.results?.length || 0
         );
 
         if (!itemsResponse.ok) {
+          console.error(
+            "ERRO NO PRODUTO:",
+            produto.id,
+            itemsData
+          );
+
           continue;
         }
 
@@ -353,27 +403,6 @@ app.get("/ofertas", async (req, res) => {
           of itemsData.results || []
         ) {
 
-          const preco =
-            item.price ?? null;
-
-          const precoOriginal =
-            item.original_price ?? null;
-
-          let desconto = 0;
-
-          if (
-            precoOriginal !== null &&
-            preco !== null &&
-            precoOriginal > preco
-          ) {
-            desconto = Math.round(
-              (
-                (precoOriginal - preco) /
-                precoOriginal
-              ) * 100
-            );
-          }
-
           ofertas.push({
 
             product_id:
@@ -386,36 +415,31 @@ app.get("/ofertas", async (req, res) => {
               produto.name || null,
 
             preco:
-              preco,
-
-            preco_original:
-              precoOriginal,
-
-            desconto:
-              desconto,
+              item.price ?? null,
 
             moeda:
               item.currency_id || null,
 
+            desconto_minimo:
+              10,
+
             imagem:
               produto.pictures?.[0]?.url ||
               null,
-
-            link:
-              item.permalink || null,
 
             vendedor:
               item.seller_id || null,
 
             condicao:
               item.condition || null
+
           });
         }
 
       } catch (error) {
 
         console.error(
-          "Erro no produto:",
+          "ERRO AO CONSULTAR PRODUTO:",
           produto.id,
           error
         );
@@ -446,17 +470,7 @@ app.get("/ofertas", async (req, res) => {
 
 
     // -------------------------------------------------
-    // 5. ORDENAR
-    // -------------------------------------------------
-
-    ofertasUnicas.sort(
-      (a, b) =>
-        b.desconto - a.desconto
-    );
-
-
-    // -------------------------------------------------
-    // 6. RESPOSTA
+    // 5. RESPOSTA
     // -------------------------------------------------
 
     res.json({
@@ -488,64 +502,7 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 });
-// =====================================================
-// TESTAR DETALHES DE UMA OFERTA
-// =====================================================
 
-app.get("/teste-item", async (req, res) => {
-  const itemId = req.query.id;
-
-  if (!itemId) {
-    return res.status(400).json({
-      erro: "Informe o item. Exemplo: /teste-item?id=MLB5008947313"
-    });
-  }
-
-  if (!accessToken) {
-    return res.status(401).json({
-      erro: "PromoRadar ainda não está autorizado."
-    });
-  }
-
-  try {
-    const itemResponse = await fetch(
-      `https://api.mercadolibre.com/items/${itemId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    const itemData = await itemResponse.json();
-
-    const pricesResponse = await fetch(
-      `https://api.mercadolibre.com/items/${itemId}/prices`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    const pricesData = await pricesResponse.json();
-
-    res.json({
-      item_status: itemResponse.status,
-      item: itemData,
-
-      prices_status: pricesResponse.status,
-      prices: pricesData
-    });
-
-  } catch (error) {
-    console.error("ERRO /teste-item:", error);
-
-    res.status(500).json({
-      erro: "Erro ao consultar o anúncio."
-    });
-  }
-});
 
 // =====================================================
 // NOTIFICAÇÕES
@@ -570,8 +527,12 @@ app.get("/status", (req, res) => {
 
   res.json({
     online: true,
+
     mercado_livre_autorizado:
-      !!accessToken
+      !!accessToken,
+
+    servidor:
+      "PromoRadar"
   });
 
 });
