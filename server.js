@@ -65,7 +65,18 @@ app.get("/auth/callback", async (req, res) => {
 
     accessToken = data.access_token;
 refreshToken = data.refresh_token;
+const meResponse = await fetch(
+  "https://api.mercadolibre.com/users/me",
+  {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  }
+);
 
+const meData = await meResponse.json();
+
+console.log("TESTE USERS/ME:", meResponse.status, meData);
     console.log(
       "Mercado Livre conectado. Usuário:",
       data.user_id
