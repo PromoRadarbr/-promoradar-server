@@ -531,7 +531,43 @@ app.get("/teste-produto", async (req, res) => {
     });
   }
 });
+app.get("/teste-promocao", async (req, res) => {
+  const itemId = req.query.id;
 
+  if (!itemId) {
+    return res.status(400).json({
+      erro: "Informe o item. Exemplo: /teste-promocao?id=MLB5008947313"
+    });
+  }
+
+  if (!accessToken) {
+    return res.status(401).json({
+      erro: "PromoRadar ainda não está autorizado."
+    });
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.mercadolibre.com/seller-promotions/items/${itemId}?app_version=v2`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    res.status(response.status).json(data);
+
+  } catch (error) {
+    console.error("ERRO /teste-promocao:", error);
+
+    res.status(500).json({
+      erro: error.message
+    });
+  }
+});
 // =====================================================
 // NOTIFICAÇÕES
 // =====================================================
