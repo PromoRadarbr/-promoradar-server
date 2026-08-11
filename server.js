@@ -568,9 +568,17 @@ app.post("/notifications", (req, res) => {
     console.log("TEXTO DA MENSAGEM:", texto);
 
     // Preço
-    const precoEncontrado = texto.match(
-      /R\$\s*([\d.]+(?:,\d{2})?)/i
-    );
+    const precosEncontrados = [
+  ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/gi)
+];
+
+const precoOriginal = precosEncontrados[0]
+  ? precosEncontrados[0][1]
+  : null;
+
+const precoAtual = precosEncontrados[1]
+  ? precosEncontrados[1][1]
+  : precoOriginal;
 
     // Link
     const linkEncontrado = texto.match(
@@ -591,14 +599,13 @@ app.post("/notifications", (req, res) => {
       ) || "Produto não identificado";
 
     const oferta = {
-      produto: produto,
-      preco: precoEncontrado
-        ? precoEncontrado[1]
-        : null,
-      link: linkEncontrado
-        ? linkEncontrado[0]
-        : null
-    };
+  produto: produto,
+  precoOriginal: precoOriginal,
+  precoAtual: precoAtual,
+  link: linkEncontrado
+    ? linkEncontrado[0]
+    : null
+};
 
     console.log("OFERTA IDENTIFICADA:");
     console.log(JSON.stringify(oferta, null, 2));
