@@ -249,36 +249,48 @@ console.log("BUSCA URL:", url);
       return res.status(response.status).json(data);
     }
 
-    const ofertas = data.results.map((item) => {
-      const precoAtual = item.price;
-      const precoOriginal = item.original_price;
+    const ofertas = [];
 
-      let desconto = 0;
+for (const produto of data.results) {
+  try {
+    const productUrl =
+      `https://api.mercadolibre.com/products/${produto.id}/items?limit=10`;
 
-      if (
-        precoOriginal &&
-        precoAtual &&
-        precoOriginal > precoAtual
-      ) {
-        desconto = Math.round(
-          ((precoOriginal - precoAtual) / precoOriginal) * 100
-        );
+    const productResponse = await fetch(productUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
       }
-
-      return {
-        produto: item.title,
-        item_id: item.id,
-        preco: precoAtual,
-        preco_original: precoOriginal || null,
-        desconto: desconto,
-        moeda: item.currency_id,
-        imagem: item.thumbnail,
-        link: item.permalink,
-        vendedor: item.seller?.id || null,
-        condicao: item.condition
-      };
     });
 
+    if (!productResponse.ok) {
+      console.log(
+        "Erro ao buscar anúncios do produto:",
+        produto.id,
+        productResponse.status
+      );
+      continue;
+    }
+
+    const productData = await productResponse.json();
+
+    for (const item of productData.results || []) {
+      ofertas.push({
+        product_id: produto.id,
+        item_id: item.item_id,
+        preco: item.price || null,
+        moeda: item.currency_id || null,
+        vendedor: item.seller_id || null,
+        condicao: item.condition || null
+      });
+    }
+  } catch (error) {
+    console.error(
+      "Erro ao buscar anúncios:",
+      produto.id,
+      error
+    );
+  }
+}
     ofertas.sort((a, b) => b.desconto - a.desconto);
 
     res.json({
