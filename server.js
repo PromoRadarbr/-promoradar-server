@@ -550,9 +550,9 @@ link:
 app.post("/notifications", (req, res) => {
 
   console.log(
-    "NOTIFICAÇÃO RECEBIDA:",
-    req.body
-  );
+  "NOTIFICAÇÃO RECEBIDA:",
+  JSON.stringify(req.body, null, 2)
+);
 
   res.sendStatus(200);
 });
