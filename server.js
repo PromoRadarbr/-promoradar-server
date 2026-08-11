@@ -502,7 +502,35 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 });
+app.get("/teste-produto", async (req, res) => {
+  if (!accessToken) {
+    return res.status(401).json({
+      erro: "PromoRadar ainda não está autorizado."
+    });
+  }
 
+  try {
+    const response = await fetch(
+      "https://api.mercadolibre.com/products/MLB47227416/items?limit=20",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    res.status(response.status).json(data);
+
+  } catch (error) {
+    console.error("ERRO /teste-produto:", error);
+
+    res.status(500).json({
+      erro: error.message
+    });
+  }
+});
 
 // =====================================================
 // NOTIFICAÇÕES
