@@ -555,15 +555,18 @@ app.post("/notifications", (req, res) => {
     console.log(JSON.stringify(dados, null, 2));
 
     const mensagem =
-      dados?.messages?.[0] ||
-      dados?.[0] ||
-      dados;
+  dados?.data?.messages ||
+  dados?.messages?.[0] ||
+  dados?.[0] ||
+  dados;
 
-    const texto =
-      mensagem?.text?.body ||
-      mensagem?.text ||
-      mensagem?.body ||
-      "";
+const texto =
+  mensagem?.messageBody ||
+  mensagem?.message?.conversation ||
+  mensagem?.text?.body ||
+  mensagem?.text ||
+  mensagem?.body ||
+  "";
 
     console.log("TEXTO DA MENSAGEM:", texto);
 
