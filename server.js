@@ -561,6 +561,9 @@ app.post("/notifications", (req, res) => {
   dados;
 
 const texto =
+  mensagem?.message?.imageMessage?.caption ||
+  mensagem?.imageMessage?.caption ||
+  mensagem?.caption ||
   mensagem?.messageBody ||
   mensagem?.message?.conversation ||
   mensagem?.text?.body ||
