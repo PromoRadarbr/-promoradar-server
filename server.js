@@ -336,7 +336,7 @@ res.json({
   ofertas_encontradas: ofertas.length,
   ofertas
 });
-
+}
   } catch (error) {
     console.error("Erro ao buscar ofertas:", error);
 
