@@ -219,11 +219,10 @@ app.get("/ofertas", async (req, res) => {
   }
 
   try {
-    // Busca anúncios reais no Mercado Livre
     const url =
-      `https://api.mercadolibre.com/sites/MLB/search` +
+      "https://api.mercadolibre.com/sites/MLB/search" +
       `?q=${encodeURIComponent(q)}` +
-      `&limit=20`;
+      "&limit=20";
 
     const response = await fetch(url, {
       headers: {
@@ -268,11 +267,11 @@ app.get("/ofertas", async (req, res) => {
       };
     });
 
-    // Melhores descontos primeiro
     ofertas.sort((a, b) => b.desconto - a.desconto);
 
     res.json({
       busca: q,
+      produtos_encontrados: data.results.length,
       ofertas_encontradas: ofertas.length,
       ofertas
     });
