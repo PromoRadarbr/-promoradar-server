@@ -231,7 +231,7 @@ app.get("/ofertas", async (req, res) => {
 
   try {
     const url =
-  "https://api.mercadolivre.com/products/search" +
+  "https://api.mercadolibre.com/products/search" +
   `?status=active&site_id=MLB&q=${encodeURIComponent(q)}` +
   "&limit=20";
 
