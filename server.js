@@ -202,6 +202,7 @@ app.get("/buscar", async (req, res) => {
 });
 
 // Busca ofertas no Mercado Livre
+// Busca ofertas no catálogo do Mercado Livre
 app.get("/ofertas", async (req, res) => {
   const { q } = req.query;
 
@@ -211,61 +212,84 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 
-  try {
-    const url =
-      `https://api.mercadolibre.com/sites/MLB/search` +
-      `?q=${encodeURIComponent(q)}` +
-      `&limit=20`;
-
-    const response = await fetch(url, {
-  headers: {
-    Authorization: `Bearer ${accessToken}`
+  if (!accessToken) {
+    return res.status(401).send(
+      "PromoRadar ainda não está autorizado."
+    );
   }
-});
 
-const data = await response.json();
-    
+  try {
+    // 1. Busca produtos no catálogo
+    const searchUrl =
+      `https://api.mercadolibre.com/products/search` +
+      `?status=active` +
+      `&site_id=MLB` +
+      `&q=${encodeURIComponent(q)}` +
+      `&limit=5`;
 
-    if (!response.ok) {
-      console.error("Erro na busca:", data);
-      return res.status(response.status).json(data);
-    }
-
-    const ofertas = data.results.map((item) => {
-      const precoAtual = item.price;
-      const precoOriginal = item.original_price;
-
-      let desconto = 0;
-
-      if (
-        precoOriginal &&
-        precoAtual &&
-        precoOriginal > precoAtual
-      ) {
-        desconto = Math.round(
-          ((precoOriginal - precoAtual) /
-            precoOriginal) * 100
-        );
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
       }
-
-      return {
-        id: item.id,
-        produto: item.title,
-        preco_atual: precoAtual,
-        preco_original: precoOriginal,
-        desconto: desconto,
-        imagem: item.thumbnail || null,
-        link: item.permalink || null
-      };
     });
 
-    ofertas.sort((a, b) => b.desconto - a.desconto);
+    const searchData = await searchResponse.json();
+
+    if (!searchResponse.ok) {
+      console.error("Erro na busca do catálogo:", searchData);
+      return res
+        .status(searchResponse.status)
+        .json(searchData);
+    }
+
+    const ofertas = [];
+
+    // 2. Busca as publicações de cada produto
+    for (const produto of searchData.results) {
+      const itemsUrl =
+        `https://api.mercadolibre.com/products/${produto.id}/items`;
+
+      const itemsResponse = await fetch(itemsUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+
+      const itemsData = await itemsResponse.json();
+
+      if (!itemsResponse.ok) {
+        console.log(
+          "Erro ao consultar itens do produto:",
+          produto.id,
+          itemsData
+        );
+        continue;
+      }
+
+      // 3. Adiciona as ofertas encontradas
+      for (const item of itemsData.results || []) {
+        ofertas.push({
+          produto: produto.name,
+          product_id: produto.id,
+          item_id: item.item_id,
+          preco: item.price,
+          moeda: item.currency_id,
+          vendedor: item.seller_id,
+          condicao: item.condition
+        });
+      }
+    }
+
+    // 4. Menor preço primeiro
+    ofertas.sort((a, b) => {
+      return (a.preco || 0) - (b.preco || 0);
+    });
 
     res.json({
       busca: q,
-      total_encontrado: data.paging?.total || 0,
+      produtos_encontrados: searchData.results.length,
       ofertas_encontradas: ofertas.length,
-      ofertas: ofertas
+      ofertas
     });
 
   } catch (error) {
