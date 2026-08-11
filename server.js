@@ -356,7 +356,10 @@ const searchUrl =
 
             item_id:
               item.item_id || null,
-
+link:
+  item.item_id
+    ? `https://produto.mercadolivre.com.br/${item.item_id}`
+    : null,
             titulo:
               produto.name || null,
 
