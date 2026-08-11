@@ -202,7 +202,6 @@ app.get("/buscar", async (req, res) => {
 });
 
 // Busca ofertas no Mercado Livre
-// Busca ofertas no catálogo do Mercado Livre
 app.get("/ofertas", async (req, res) => {
   const { q } = req.query;
 
@@ -237,53 +236,92 @@ app.get("/ofertas", async (req, res) => {
 
     if (!searchResponse.ok) {
       console.error("Erro na busca do catálogo:", searchData);
-      return res
-        .status(searchResponse.status)
-        .json(searchData);
+      return res.status(searchResponse.status).json(searchData);
     }
 
     const ofertas = [];
 
-    // 2. Busca as publicações de cada produto
+    // 2. Procura anúncios para cada produto
     for (const produto of searchData.results) {
-      const itemsUrl =
-        `https://api.mercadolibre.com/products/${produto.id}/items`;
-
-      const itemsResponse = await fetch(itemsUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-
-      const itemsData = await itemsResponse.json();
-
-      if (!itemsResponse.ok) {
-        console.log(
-          "Erro ao consultar itens do produto:",
-          produto.id,
-          itemsData
+      try {
+        const productResponse = await fetch(
+          `https://api.mercadolibre.com/products/${produto.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
         );
-        continue;
-      }
 
-      // 3. Adiciona as ofertas encontradas
-      for (const item of itemsData.results || []) {
+        if (!productResponse.ok) {
+          continue;
+        }
+
+        const productData = await productResponse.json();
+
+        const itemId = productData.buy_box_winner?.item_id;
+
+        if (!itemId) {
+          continue;
+        }
+
+        // 3. Consulta os detalhes do anúncio
+        const itemResponse = await fetch(
+          `https://api.mercadolibre.com/items/${itemId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        if (!itemResponse.ok) {
+          continue;
+        }
+
+        const item = await itemResponse.json();
+
+        const precoAtual = item.price;
+        const precoOriginal = item.original_price;
+
+        let desconto = 0;
+
+        if (
+          precoOriginal &&
+          precoAtual &&
+          precoOriginal > precoAtual
+        ) {
+          desconto = Math.round(
+            ((precoOriginal - precoAtual) / precoOriginal) * 100
+          );
+        }
+
         ofertas.push({
           produto: produto.name,
           product_id: produto.id,
-          item_id: item.item_id,
-          preco: item.price,
+          item_id: item.id,
+          preco: precoAtual,
+          preco_original: precoOriginal || null,
+          desconto: desconto,
           moeda: item.currency_id,
+          imagem: item.thumbnail,
+          link: item.permalink,
           vendedor: item.seller_id,
           condicao: item.condition
         });
+
+      } catch (error) {
+        console.error(
+          "Erro ao consultar anúncio:",
+          error
+        );
       }
     }
 
-    // 4. Menor preço primeiro
-    ofertas.sort((a, b) => {
-      return (a.preco || 0) - (b.preco || 0);
-    });
+    // 4. Melhores descontos primeiro
+    ofertas.sort(
+      (a, b) => b.desconto - a.desconto
+    );
 
     res.json({
       busca: q,
@@ -293,7 +331,10 @@ app.get("/ofertas", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erro ao buscar ofertas:", error);
+    console.error(
+      "Erro ao buscar ofertas:",
+      error
+    );
 
     res.status(500).send(
       "Erro ao buscar ofertas no Mercado Livre."
