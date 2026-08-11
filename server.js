@@ -285,7 +285,7 @@ const searchUrl =
   (domainId
     ? `&domain_id=${encodeURIComponent(domainId)}`
     : "") +
-  "&limit=20";
+  "&limit=50";
 
     const searchResponse =
       await fetch(searchUrl, {
@@ -318,7 +318,7 @@ const searchUrl =
       try {
 
         const itemsUrl =
-          `https://api.mercadolibre.com/products/${produto.id}/items?limit=20`;
+          `https://api.mercadolibre.com/products/${produto.id}/items?limit=50`;
 
         const itemsResponse =
           await fetch(itemsUrl, {
