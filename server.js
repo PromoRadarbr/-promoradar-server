@@ -231,9 +231,9 @@ app.get("/ofertas", async (req, res) => {
 
   try {
     const url =
-      "https://api.mercadolibre.com/sites/MLB/search" +
-      `?q=${encodeURIComponent(q)}` +
-      "&limit=20";
+  "https://api.mercadolivre.com/products/search" +
+  `?status=active&site_id=MLB&q=${encodeURIComponent(q)}` +
+  "&limit=20";
 
     const response = await fetch(url, {
       headers: {
