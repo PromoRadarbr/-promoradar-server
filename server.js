@@ -405,7 +405,62 @@ const searchUrl =
       }
     }
 
+    // -------------------------------------------------
+    // 4. COMPARAR PREÇOS DO MESMO PRODUTO
+    // -------------------------------------------------
 
+    const gruposProdutos = {};
+
+    for (const oferta of ofertas) {
+      if (
+        !oferta.product_id ||
+        oferta.preco === null
+      ) {
+        continue;
+      }
+
+      if (!gruposProdutos[oferta.product_id]) {
+        gruposProdutos[oferta.product_id] = [];
+      }
+
+      gruposProdutos[oferta.product_id].push(oferta);
+    }
+
+    for (const productId of Object.keys(gruposProdutos)) {
+      const grupo = gruposProdutos[productId];
+
+      if (grupo.length < 2) {
+        continue;
+      }
+
+      const precos = grupo
+        .map((oferta) => oferta.preco)
+        .filter((preco) => typeof preco === "number");
+
+      if (precos.length < 2) {
+        continue;
+      }
+
+      const media =
+        precos.reduce(
+          (total, preco) => total + preco,
+          0
+        ) / precos.length;
+
+      for (const oferta of grupo) {
+        oferta.media_preco =
+          Math.round(media * 100) / 100;
+
+        oferta.economia_vs_media =
+          Math.round(
+            ((media - oferta.preco) / media) * 100
+          );
+      }
+    }
+
+    // -------------------------------------------------
+    // 5. REMOVER DUPLICADOS
+    // -------------------------------------------------
     // -------------------------------------------------
     // 4. REMOVER DUPLICADOS
     // -------------------------------------------------
