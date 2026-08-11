@@ -2,7 +2,7 @@ const express = require("express");
 
 const app = express();
 let accessToken = null;
-
+let refreshToken = null;
 app.use(express.json());
 
 // Página inicial
@@ -64,6 +64,7 @@ app.get("/auth/callback", async (req, res) => {
     }
 
     accessToken = data.access_token;
+refreshToken = data.refresh_token;
 
     console.log(
       "Mercado Livre conectado. Usuário:",
