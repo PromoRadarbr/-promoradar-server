@@ -217,8 +217,14 @@ app.get("/ofertas", async (req, res) => {
       `?q=${encodeURIComponent(q)}` +
       `&limit=20`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+    const response = await fetch(url, {
+  headers: {
+    Authorization: `Bearer ${accessToken}`
+  }
+});
+
+const data = await response.json();
+    
 
     if (!response.ok) {
       console.error("Erro na busca:", data);
