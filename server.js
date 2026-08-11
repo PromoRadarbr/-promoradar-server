@@ -553,7 +553,10 @@ app.post("/notifications", async (req, res) => {
 
     console.log("NOTIFICAÇÃO RECEBIDA:");
     console.log(JSON.stringify(dados, null, 2));
-
+if (dados?.event === "messages.post") {
+  console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
+  return res.sendStatus(200);
+}
     const mensagem =
   dados?.data?.messages ||
   dados?.messages?.[0] ||
