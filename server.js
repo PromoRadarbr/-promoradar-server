@@ -548,15 +548,67 @@ link:
 // =====================================================
 
 app.post("/notifications", (req, res) => {
+  try {
+    const dados = req.body;
 
-  console.log(
-  "NOTIFICAÇÃO RECEBIDA:",
-  JSON.stringify(req.body, null, 2)
-);
-const texto = req.body?.messages?.[0]?.text?.body || "";
+    console.log("NOTIFICAÇÃO RECEBIDA:");
+    console.log(JSON.stringify(dados, null, 2));
 
-console.log("TEXTO DA MENSAGEM:", texto);
-  res.sendStatus(200);
+    const mensagem =
+      dados?.messages?.[0] ||
+      dados?.[0] ||
+      dados;
+
+    const texto =
+      mensagem?.text?.body ||
+      mensagem?.text ||
+      mensagem?.body ||
+      "";
+
+    console.log("TEXTO DA MENSAGEM:", texto);
+
+    // Preço
+    const precoEncontrado = texto.match(
+      /R\$\s*([\d.]+(?:,\d{2})?)/i
+    );
+
+    // Link
+    const linkEncontrado = texto.match(
+      /https?:\/\/[^\s]+/i
+    );
+
+    // Produto
+    const linhas = texto
+      .split("\n")
+      .map(linha => linha.trim())
+      .filter(Boolean);
+
+    const produto =
+      linhas.find(linha =>
+        !/oferta/i.test(linha) &&
+        !/R\$/i.test(linha) &&
+        !/https?:\/\//i.test(linha)
+      ) || "Produto não identificado";
+
+    const oferta = {
+      produto: produto,
+      preco: precoEncontrado
+        ? precoEncontrado[1]
+        : null,
+      link: linkEncontrado
+        ? linkEncontrado[0]
+        : null
+    };
+
+    console.log("OFERTA IDENTIFICADA:");
+    console.log(JSON.stringify(oferta, null, 2));
+
+    res.sendStatus(200);
+
+  } catch (error) {
+    console.error("ERRO AO PROCESSAR NOTIFICAÇÃO:", error);
+    res.sendStatus(500);
+  }
 });
 
 
