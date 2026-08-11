@@ -488,7 +488,64 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 });
+// =====================================================
+// TESTAR DETALHES DE UMA OFERTA
+// =====================================================
 
+app.get("/teste-item", async (req, res) => {
+  const itemId = req.query.id;
+
+  if (!itemId) {
+    return res.status(400).json({
+      erro: "Informe o item. Exemplo: /teste-item?id=MLB5008947313"
+    });
+  }
+
+  if (!accessToken) {
+    return res.status(401).json({
+      erro: "PromoRadar ainda não está autorizado."
+    });
+  }
+
+  try {
+    const itemResponse = await fetch(
+      `https://api.mercadolibre.com/items/${itemId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    const itemData = await itemResponse.json();
+
+    const pricesResponse = await fetch(
+      `https://api.mercadolibre.com/items/${itemId}/prices`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    const pricesData = await pricesResponse.json();
+
+    res.json({
+      item_status: itemResponse.status,
+      item: itemData,
+
+      prices_status: pricesResponse.status,
+      prices: pricesData
+    });
+
+  } catch (error) {
+    console.error("ERRO /teste-item:", error);
+
+    res.status(500).json({
+      erro: "Erro ao consultar o anúncio."
+    });
+  }
+});
 
 // =====================================================
 // NOTIFICAÇÕES
