@@ -218,52 +218,42 @@ app.get("/ofertas", async (req, res) => {
       `&limit=20`;
 
     const response = await fetch(url);
-
     const data = await response.json();
 
     if (!response.ok) {
       console.error("Erro na busca:", data);
-
-      return res
-        .status(response.status)
-        .json(data);
+      return res.status(response.status).json(data);
     }
 
-    const ofertas = data.results
-      .map((item) => {
-        const precoAtual = item.price;
-        const precoOriginal = item.original_price;
+    const ofertas = data.results.map((item) => {
+      const precoAtual = item.price;
+      const precoOriginal = item.original_price;
 
-        let desconto = 0;
+      let desconto = 0;
 
-        if (
-          precoOriginal &&
-          precoAtual &&
-          precoOriginal > precoAtual
-        ) {
-          desconto = Math.round(
-            ((precoOriginal - precoAtual) /
-              precoOriginal) *
-              100
-          );
-        }
+      if (
+        precoOriginal &&
+        precoAtual &&
+        precoOriginal > precoAtual
+      ) {
+        desconto = Math.round(
+          ((precoOriginal - precoAtual) /
+            precoOriginal) * 100
+        );
+      }
 
-        return {
-          id: item.id,
-          produto: item.title,
-          preco_atual: precoAtual,
-          preco_original: precoOriginal,
-          desconto: desconto,
-          imagem: item.thumbnail || null,
-          link: item.permalink || null
-        };
-      })
-      .filter((item) => item.preco_atual != null);
+      return {
+        id: item.id,
+        produto: item.title,
+        preco_atual: precoAtual,
+        preco_original: precoOriginal,
+        desconto: desconto,
+        imagem: item.thumbnail || null,
+        link: item.permalink || null
+      };
+    });
 
-    // Maior desconto primeiro
-    ofertas.sort(
-      (a, b) => b.desconto - a.desconto
-    );
+    ofertas.sort((a, b) => b.desconto - a.desconto);
 
     res.json({
       busca: q,
