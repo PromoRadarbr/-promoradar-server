@@ -553,7 +553,9 @@ app.post("/notifications", (req, res) => {
   "NOTIFICAÇÃO RECEBIDA:",
   JSON.stringify(req.body, null, 2)
 );
+const texto = req.body?.messages?.[0]?.text?.body || "";
 
+console.log("TEXTO DA MENSAGEM:", texto);
   res.sendStatus(200);
 });
 
