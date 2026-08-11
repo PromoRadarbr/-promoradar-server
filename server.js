@@ -230,75 +230,63 @@ app.get("/ofertas", async (req, res) => {
   }
 
   try {
-    const url =
-  "https://api.mercadolibre.com/products/search" +
-  `?status=active&site_id=MLB&q=${encodeURIComponent(q)}` +
-  "&limit=20";
+  const url =
+    `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(q)}&limit=20`;
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
-console.log("BUSCA STATUS:", response.status);
-console.log("BUSCA URL:", url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("Erro na busca:", data);
-      return res.status(response.status).json(data);
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
+  });
 
-    const ofertas = [];
+  console.log("BUSCA STATUS:", response.status);
+  console.log("BUSCA URL:", url);
 
-for (const produto of data.results) {
-  try {
-    const productUrl =
-      `https://api.mercadolibre.com/products/${produto.id}/items?limit=10`;
+  const data = await response.json();
 
-    const productResponse = await fetch(productUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+  if (!response.ok) {
+    console.error("Erro na busca:", data);
+    return res.status(response.status).json(data);
+  }
 
-    if (!productResponse.ok) {
-      console.log(
-        "Erro ao buscar anúncios do produto:",
-        produto.id,
-        productResponse.status
+  const ofertas = data.results.map((item) => {
+    const precoAtual = item.price || null;
+    const precoOriginal = item.original_price || null;
+
+    let desconto = 0;
+
+    if (
+      precoOriginal &&
+      precoAtual &&
+      precoOriginal > precoAtual
+    ) {
+      desconto = Math.round(
+        ((precoOriginal - precoAtual) / precoOriginal) * 100
       );
-      continue;
     }
 
-    const productData = await productResponse.json();
+    return {
+      item_id: item.id,
+      titulo: item.title || null,
+      preco: precoAtual,
+      preco_original: precoOriginal,
+      desconto: desconto,
+      moeda: item.currency_id || null,
+      imagem: item.thumbnail || null,
+      link: item.permalink || null,
+      vendedor: item.seller?.id || null,
+      condicao: item.condition || null
+    };
+  });
 
-    for (const item of productData.results || []) {
-      try {
-        const itemResponse = await fetch(
-          `https://api.mercadolibre.com/items/${item.item_id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            }
-          }
-        );
+  ofertas.sort((a, b) => b.desconto - a.desconto);
 
-        if (!itemResponse.ok) {
-          console.log(
-            "Erro ao buscar detalhes do anúncio:",
-            item.item_id,
-            itemResponse.status
-          );
-          continue;
-        }
-
-        const itemData = await itemResponse.json();
-
-        const precoAtual = itemData.price || null;
-        const precoOriginal = itemData.original_price || null;
-
-        let desconto = 0;
+  res.json({
+    busca: q,
+    produtos_encontrados: data.results.length,
+    ofertas_encontradas: ofertas.length,
+    ofertas
+  });
 
         if (
           precoOriginal &&
