@@ -1,30 +1,49 @@
 const express = require("express");
 
 const app = express();
-let accessToken = null;
-let refreshToken = null;
 app.use(express.json());
 
-// Página inicial
+let accessToken = null;
+let refreshToken = null;
+
+
+// ================================
+// INÍCIO
+// ================================
+
 app.get("/", (req, res) => {
   res.send("PromoRadar online!");
 });
 
-// Inicia a autorização do Mercado Livre
+
+// ================================
+// AUTORIZAÇÃO MERCADO LIVRE
+// ================================
+
 app.get("/auth", (req, res) => {
   const clientId = process.env.ML_CLIENT_ID;
   const redirectUri = process.env.ML_REDIRECT_URI;
 
+  if (!clientId || !redirectUri) {
+    return res.status(500).send(
+      "ML_CLIENT_ID ou ML_REDIRECT_URI não configurado."
+    );
+  }
+
   const authUrl =
-    `https://auth.mercadolivre.com.br/authorization` +
-    `?response_type=code` +
+    "https://auth.mercadolivre.com.br/authorization" +
+    "?response_type=code" +
     `&client_id=${clientId}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
   res.redirect(authUrl);
 });
 
-// Recebe o código de autorização do Mercado Livre
+
+// ================================
+// CALLBACK
+// ================================
+
 app.get("/auth/callback", async (req, res) => {
   const { code } = req.query;
 
@@ -39,10 +58,13 @@ app.get("/auth/callback", async (req, res) => {
       "https://api.mercadolibre.com/oauth/token",
       {
         method: "POST",
+
         headers: {
           accept: "application/json",
-          "content-type": "application/x-www-form-urlencoded"
+          "content-type":
+            "application/x-www-form-urlencoded"
         },
+
         body: new URLSearchParams({
           grant_type: "authorization_code",
           client_id: process.env.ML_CLIENT_ID,
@@ -57,26 +79,14 @@ app.get("/auth/callback", async (req, res) => {
 
     if (!response.ok) {
       console.error("Erro OAuth:", data);
-
       return res
         .status(response.status)
         .json(data);
     }
 
     accessToken = data.access_token;
-refreshToken = data.refresh_token;
-const meResponse = await fetch(
-  "https://api.mercadolibre.com/users/me",
-  {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  }
-);
+    refreshToken = data.refresh_token || null;
 
-const meData = await meResponse.json();
-
-console.log("TESTE USERS/ME:", meResponse.status, meData);
     console.log(
       "Mercado Livre conectado. Usuário:",
       data.user_id
@@ -85,7 +95,7 @@ console.log("TESTE USERS/ME:", meResponse.status, meData);
     res.send(`
       <h1>PromoRadar conectado!</h1>
       <p>Autorização realizada com sucesso.</p>
-      <p>Usuário Mercado Livre: ${data.user_id}</p>
+      <p>Usuário: ${data.user_id}</p>
     `);
 
   } catch (error) {
@@ -93,26 +103,22 @@ console.log("TESTE USERS/ME:", meResponse.status, meData);
 
     res
       .status(500)
-      .send("Erro interno ao conectar com o Mercado Livre.");
+      .send(
+        "Erro interno ao conectar com o Mercado Livre."
+      );
   }
 });
 
-// Recebe notificações do Mercado Livre
-app.post("/notifications", (req, res) => {
-  console.log(
-    "Notificação recebida:",
-    req.body
-  );
 
-  res.sendStatus(200);
-});
+// ================================
+// TESTAR MERCADO LIVRE
+// ================================
 
-// Testa a conexão com a API do Mercado Livre
 app.get("/test-ml", async (req, res) => {
   if (!accessToken) {
-    return res
-      .status(401)
-      .send("PromoRadar ainda não está autorizado.");
+    return res.status(401).send(
+      "PromoRadar ainda não está autorizado."
+    );
   }
 
   try {
@@ -120,7 +126,8 @@ app.get("/test-ml", async (req, res) => {
       "https://api.mercadolibre.com/users/me",
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`
+          Authorization:
+            `Bearer ${accessToken}`
         }
       }
     );
@@ -128,11 +135,6 @@ app.get("/test-ml", async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error(
-        "Erro na API do Mercado Livre:",
-        data
-      );
-
       return res
         .status(response.status)
         .json(data);
@@ -146,39 +148,109 @@ app.get("/test-ml", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erro:", error);
+    console.error("Erro /test-ml:", error);
 
     res
       .status(500)
-      .send("Erro ao consultar o Mercado Livre.");
+      .send(
+        "Erro ao consultar o Mercado Livre."
+      );
   }
 });
 
-// Busca produtos no catálogo do Mercado Livre
+
+// ================================
+// BUSCAR PRODUTOS
+// ================================
+
 app.get("/buscar", async (req, res) => {
   const { q } = req.query;
 
   if (!q) {
     return res.status(400).json({
-      erro: "Informe o produto. Exemplo: /buscar?q=iphone"
+      erro:
+        "Informe o produto. Exemplo: /buscar?q=iphone"
     });
   }
 
   try {
     const url =
-      `https://api.mercadolibre.com/products/search` +
-      `?status=active` +
-      `&site_id=MLB` +
+      "https://api.mercadolibre.com/products/search" +
+      "?status=active" +
+      "&site_id=MLB" +
       `&q=${encodeURIComponent(q)}` +
-      `&limit=10`;
+      "&limit=20";
 
     const response = await fetch(url);
-
     const data = await response.json();
 
     if (!response.ok) {
+      return res
+        .status(response.status)
+        .json(data);
+    }
+
+    const produtos =
+      (data.results || []).map((item) => ({
+        id: item.id,
+        nome: item.name,
+        status: item.status,
+        dominio: item.domain_id,
+        imagem:
+          item.pictures?.[0]?.url || null
+      }));
+
+    res.json({
+      busca: q,
+      total: data.paging?.total || 0,
+      produtos
+    });
+
+  } catch (error) {
+    console.error("Erro /buscar:", error);
+
+    res
+      .status(500)
+      .send(
+        "Erro ao buscar produtos no Mercado Livre."
+      );
+  }
+});
+
+
+// ================================
+// BUSCAR OFERTAS
+// ================================
+
+app.get("/ofertas", async (req, res) => {
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({
+      erro:
+        "Informe o produto. Exemplo: /ofertas?q=iphone"
+    });
+  }
+
+  try {
+    const url =
+      "https://api.mercadolibre.com/sites/MLB/search" +
+      `?q=${encodeURIComponent(q)}` +
+      "&limit=20";
+
+    console.log("BUSCA URL:", url);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    console.log(
+      "BUSCA STATUS:",
+      response.status
+    );
+
+    if (!response.ok) {
       console.error(
-        "Erro na busca de produtos:",
+        "Erro na busca:",
         data
       );
 
@@ -187,165 +259,98 @@ app.get("/buscar", async (req, res) => {
         .json(data);
     }
 
-    const produtos = data.results.map((item) => ({
-      id: item.id,
-      nome: item.name,
-      status: item.status,
-      dominio: item.domain_id,
-      imagem: item.pictures?.[0]?.url || null
-    }));
+    const ofertas =
+      (data.results || []).map((item) => {
+        const preco =
+          item.price ?? null;
+
+        const precoOriginal =
+          item.original_price ?? null;
+
+        let desconto = 0;
+
+        if (
+          precoOriginal &&
+          preco &&
+          precoOriginal > preco
+        ) {
+          desconto = Math.round(
+            (
+              (precoOriginal - preco) /
+              precoOriginal
+            ) * 100
+          );
+        }
+
+        return {
+          item_id: item.id,
+          titulo: item.title || null,
+          preco: preco,
+          preco_original:
+            precoOriginal,
+          desconto: desconto,
+          moeda:
+            item.currency_id || null,
+          imagem:
+            item.thumbnail || null,
+          link:
+            item.permalink || null,
+          vendedor:
+            item.seller?.id || null,
+          condicao:
+            item.condition || null
+        };
+      });
+
+    ofertas.sort(
+      (a, b) =>
+        b.desconto - a.desconto
+    );
 
     res.json({
       busca: q,
-      total: data.paging.total,
-      produtos
+      produtos_encontrados:
+        data.results?.length || 0,
+      ofertas_encontradas:
+        ofertas.length,
+      ofertas: ofertas
     });
 
   } catch (error) {
     console.error(
-      "Erro ao buscar produtos:",
+      "Erro /ofertas:",
       error
     );
 
     res
       .status(500)
-      .send("Erro ao buscar produtos no Mercado Livre.");
-  }
-});
-
-// Busca ofertas no Mercado Livre
-app.get("/ofertas", async (req, res) => {
-  const { q } = req.query;
-
-  if (!q) {
-    return res.status(400).json({
-      erro: "Informe o produto. Exemplo: /ofertas?q=iphone"
-    });
-  }
-
-  if (!accessToken) {
-    return res.status(401).send(
-      "PromoRadar ainda não está autorizado."
-    );
-  }
-
-  try {
-  const url =
-    `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(q)}&limit=20`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-
-  console.log("BUSCA STATUS:", response.status);
-  console.log("BUSCA URL:", url);
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error("Erro na busca:", data);
-    return res.status(response.status).json(data);
-  }
-
-  const ofertas = data.results.map((item) => {
-    const precoAtual = item.price || null;
-    const precoOriginal = item.original_price || null;
-
-    let desconto = 0;
-
-    if (
-      precoOriginal &&
-      precoAtual &&
-      precoOriginal > precoAtual
-    ) {
-      desconto = Math.round(
-        ((precoOriginal - precoAtual) / precoOriginal) * 100
+      .send(
+        "Erro ao buscar ofertas no Mercado Livre."
       );
-    }
-
-    return {
-      item_id: item.id,
-      titulo: item.title || null,
-      preco: precoAtual,
-      preco_original: precoOriginal,
-      desconto: desconto,
-      moeda: item.currency_id || null,
-      imagem: item.thumbnail || null,
-      link: item.permalink || null,
-      vendedor: item.seller?.id || null,
-      condicao: item.condition || null
-    };
-  });
-
-  ofertas.sort((a, b) => b.desconto - a.desconto);
-
-  res.json({
-    busca: q,
-    produtos_encontrados: data.results.length,
-    ofertas_encontradas: ofertas.length,
-    ofertas
-  });
-
-        if (
-          precoOriginal &&
-          precoAtual &&
-          precoOriginal > precoAtual
-        ) {
-          desconto = Math.round(
-            ((precoOriginal - precoAtual) / precoOriginal) * 100
-          );
-        }
-
-        ofertas.push({
-          product_id: produto.id,
-          item_id: item.item_id,
-          titulo: itemData.title || null,
-          preco: precoAtual,
-          preco_original: precoOriginal,
-          desconto: desconto,
-          moeda: itemData.currency_id || null,
-          imagem: itemData.thumbnail || null,
-          link: itemData.permalink || null,
-          vendedor: itemData.seller_id || null,
-          condicao: itemData.condition || null
-        });
-      } catch (error) {
-        console.error(
-          "Erro ao buscar detalhes:",
-          item.item_id,
-          error
-        );
-      }
-    }
-  } catch (error) {
-    console.error(
-      "Erro ao buscar anúncios:",
-      produto.id,
-      error
-    );
-  }
-}
-
-ofertas.sort((a, b) => b.desconto - a.desconto);
-
-res.json({
-  busca: q,
-  produtos_encontrados: data.results.length,
-  ofertas_encontradas: ofertas.length,
-  ofertas
-});
-}
-  } catch (error) {
-    console.error("Erro ao buscar ofertas:", error);
-
-    res.status(500).send(
-      "Erro ao buscar ofertas no Mercado Livre."
-    );
   }
 });
-const PORT = process.env.PORT || 3000;
+
+
+// ================================
+// NOTIFICAÇÕES
+// ================================
+
+app.post("/notifications", (req, res) => {
+  console.log(
+    "Notificação recebida:",
+    req.body
+  );
+
+  res.sendStatus(200);
+});
+
+
+// ================================
+// SERVIDOR
+// ================================
+
+const PORT =
+  process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(
