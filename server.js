@@ -274,14 +274,62 @@ for (const produto of data.results) {
     const productData = await productResponse.json();
 
     for (const item of productData.results || []) {
-      ofertas.push({
-        product_id: produto.id,
-        item_id: item.item_id,
-        preco: item.price || null,
-        moeda: item.currency_id || null,
-        vendedor: item.seller_id || null,
-        condicao: item.condition || null
-      });
+      try {
+        const itemResponse = await fetch(
+          `https://api.mercadolibre.com/items/${item.item_id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        );
+
+        if (!itemResponse.ok) {
+          console.log(
+            "Erro ao buscar detalhes do anúncio:",
+            item.item_id,
+            itemResponse.status
+          );
+          continue;
+        }
+
+        const itemData = await itemResponse.json();
+
+        const precoAtual = itemData.price || null;
+        const precoOriginal = itemData.original_price || null;
+
+        let desconto = 0;
+
+        if (
+          precoOriginal &&
+          precoAtual &&
+          precoOriginal > precoAtual
+        ) {
+          desconto = Math.round(
+            ((precoOriginal - precoAtual) / precoOriginal) * 100
+          );
+        }
+
+        ofertas.push({
+          product_id: produto.id,
+          item_id: item.item_id,
+          titulo: itemData.title || null,
+          preco: precoAtual,
+          preco_original: precoOriginal,
+          desconto: desconto,
+          moeda: itemData.currency_id || null,
+          imagem: itemData.thumbnail || null,
+          link: itemData.permalink || null,
+          vendedor: itemData.seller_id || null,
+          condicao: itemData.condition || null
+        });
+      } catch (error) {
+        console.error(
+          "Erro ao buscar detalhes:",
+          item.item_id,
+          error
+        );
+      }
     }
   } catch (error) {
     console.error(
@@ -291,14 +339,15 @@ for (const produto of data.results) {
     );
   }
 }
-    ofertas.sort((a, b) => b.desconto - a.desconto);
 
-    res.json({
-      busca: q,
-      produtos_encontrados: data.results.length,
-      ofertas_encontradas: ofertas.length,
-      ofertas
-    });
+ofertas.sort((a, b) => b.desconto - a.desconto);
+
+res.json({
+  busca: q,
+  produtos_encontrados: data.results.length,
+  ofertas_encontradas: ofertas.length,
+  ofertas
+});
 
   } catch (error) {
     console.error("Erro ao buscar ofertas:", error);
