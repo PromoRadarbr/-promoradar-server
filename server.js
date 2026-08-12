@@ -554,38 +554,39 @@ app.post("/notifications", async (req, res) => {
     console.log("NOTIFICAÇÃO RECEBIDA:");
     console.log(JSON.stringify(dados, null, 2));
     // Ignora mensagens enviadas pelo próprio PromoRadar
-    const mensagemRecebida =
-      dados?.data?.messages ||
-      dados?.messages?.[0] ||
-      dados?.[0] ||
-      dados;
+    const mensagensRecebidas =
+  dados?.data?.messages ??
+  dados?.messages ??
+  dados?.[0] ??
+  dados;
 
-    if (
-      mensagemRecebida?.key?.fromMe === true ||
-      mensagemRecebida?.fromMe === true
-    ) {
-      console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
-      return res.sendStatus(200);
-    }
+const mensagem =
+  Array.isArray(mensagensRecebidas)
+    ? mensagensRecebidas[0]
+    : mensagensRecebidas;
 
-    const mensagem =
-      dados?.data?.messages ||
-      dados?.messages?.[0] ||
-      dados?.[0] ||
-      dados;
+if (
+  mensagem?.key?.fromMe === true ||
+  mensagem?.fromMe === true ||
+  mensagem?.from_me === true
+) {
+  console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
+  return res.sendStatus(200);
+}
 
-    const texto =
-      mensagem?.message?.imageMessage?.caption ||
-      mensagem?.imageMessage?.caption ||
-      mensagem?.caption ||
-      mensagem?.messageBody ||
-      mensagem?.message?.conversation ||
-      mensagem?.text?.body ||
-      mensagem?.text ||
-      mensagem?.body ||
-      "";
+const texto =
+  mensagem?.messageBody ??
+  mensagem?.message?.conversation ??
+  mensagem?.message?.extendedTextMessage?.text ??
+  mensagem?.message?.imageMessage?.caption ??
+  mensagem?.imageMessage?.caption ??
+  mensagem?.caption ??
+  mensagem?.text?.body ??
+  mensagem?.text ??
+  mensagem?.body ??
+  "";
 
-    console.log("TEXTO DA MENSAGEM:", texto);
+console.log("TEXTO DA MENSAGEM:", texto);
 
     // Preço
     const precosEncontrados = [
