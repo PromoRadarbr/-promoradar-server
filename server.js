@@ -586,50 +586,51 @@ const texto =
 
 console.log("TEXTO DA MENSAGEM:", texto);
 
-    // Preço
-    const precosEncontrados = [
-      ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/g)
-    ];
+   // Preço
+const precosEncontrados = [
+  ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/gi)
+];
 
-    const precoOriginal = precosEncontrados[0]
-      ? precosEncontrados[0][1]
-      : null;
+const precoOriginal = precosEncontrados[0]
+  ? precosEncontrados[0][1]
+  : null;
 
-    const precoAtual = precosEncontrados[1]
-      ? precosEncontrados[1][1]
-      : precoOriginal;
+const precoAtual = precosEncontrados[1]
+  ? precosEncontrados[1][1]
+  : precoOriginal;
 
-    // Link
-    const linkEncontrado = texto.match(
-      /https?:\/\/[^\s]+/i
-    );
+// Link
+const linkEncontrado = texto.match(
+  /https?:\/\/[^\s]+/i
+);
 
-    // Produto
-    const linhas = texto
-      .split("\n")
-      .map(linha => linha.trim())
-      .filter(Boolean);
+// Produto
+const linhas = texto
+  .split("\n")
+  .map(linha => linha.trim())
+  .filter(Boolean);
 
-    const produtoEncontrado =
-      linhas.find(linha =>
-        !/oferta imperdível/i.test(linha) &&
-        !/R\$/i.test(linha) &&
-        !/https?:\/\//i.test(linha) &&
-        !/^\d+%\s*OFF/i.test(linha)
-      );
+const produtoEncontrado = linhas.find(linha =>
+  !/oferta imperdível/i.test(linha) &&
+  !/R\$/i.test(linha) &&
+  !/https?:\/\//i.test(linha) &&
+  !/^\d+%\s*OFF/i.test(linha) &&
+  !/^🔥|^🛍️|^❌|^💰|^🔗|^⚡/u.test(linha) &&
+  linha.length >= 3
+);
 
-    const produto = produtoEncontrado
-      ? produtoEncontrado
-          .replace(/^🛍️\s*/u, "")
-          .trim()
-      : "Produto não identificado";
+const produto = produtoEncontrado
+  ? produtoEncontrado
+      .replace(/^🛍️\s*/u, "")
+      .trim()
+  : "Produto não identificado";
 
-   const oferta = {
+const oferta = {
   produto,
   precoOriginal,
   precoAtual,
   link: linkEncontrado
-    ? linkEncontrado[0]
+    ? linkEncontrado[0].replace(/[),.;]+$/, "")
     : null
 };
 
