@@ -670,15 +670,12 @@ ${desconto}
 
 ⚡ PromoRadar | Ofertas`;
 
-    console.log("MENSAGEM PRONTA:");
-console.log(mensagemOferta);
-
-const respostaEnvio = await fetch(
+    const respostaEnvio = await fetch(
   process.env.WHAPI_API_URL + "/messages/text",
   {
     method: "POST",
     headers: {
-      "Authorization": Bearer ${process.env.WHAPI_TOKEN},
+      "Authorization": "Bearer " + process.env.WHAPI_TOKEN,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -688,7 +685,10 @@ const respostaEnvio = await fetch(
   }
 );
 
-console.log("RESULTADO:", await respostaEnvio.json());
+const resultadoEnvio = await respostaEnvio.json();
+
+console.log("RESULTADO DO ENVIO:");
+console.log(JSON.stringify(resultadoEnvio, null, 2));
 
 res.sendStatus(200);
 
