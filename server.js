@@ -575,16 +575,8 @@ if (
 }
 
 const texto =
-  mensagem?.messageBody ??
-  mensagem?.message?.conversation ??
-  mensagem?.message?.extendedTextMessage?.text ??
-  mensagem?.message?.imageMessage?.caption ??
-  mensagem?.imageMessage?.caption ??
-  mensagem?.caption ??
-  mensagem?.text?.body ??
-  mensagem?.text ??
-  mensagem?.body ??
-  "";
+    mensagem?.text?.body ??
+    "";
 
 console.log("TEXTO DA MENSAGEM:", texto);
 
