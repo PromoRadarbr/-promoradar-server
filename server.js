@@ -674,7 +674,7 @@ ${desconto}
 console.log(mensagemOferta);
 
 const respostaEnvio = await fetch(
-  `${process.env.WHAPI_API_URL}/messages/text`,
+  process.env.WHAPI_API_URL + "/messages/text",
   {
     method: "POST",
     headers: {
