@@ -546,7 +546,9 @@ link:
 // =====================================================
 // NOTIFICAÇÕES
 // =====================================================
-
+app.get("/notifications", (req, res) => {
+  res.status(200).send("PromoRadar notifications online!");
+});
 app.post("/notifications", async (req, res) => {
   try {
     const dados = req.body;
