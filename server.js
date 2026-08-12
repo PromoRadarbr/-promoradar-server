@@ -671,27 +671,7 @@ ${desconto}
 
     console.log("MENSAGEM PRONTA:");
     console.log(mensagemOferta);
-    const respostaEnvio = await fetch(
-  "https://www.wasenderapi.com/api/send-message",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.WASENDER_API_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      to: "120363410292212824@newsletter",
-      text: mensagemOferta
-    })
-  }
-);
-
-const resultadoEnvio = await respostaEnvio.json();
-
-console.log("RESULTADO DO ENVIO:");
-console.log(JSON.stringify(resultadoEnvio, null, 2));
-
-res.sendStatus(200);
+    res.sendStatus(200);
 
   } catch (error) {
     console.error("ERRO AO PROCESSAR NOTIFICAÇÃO:", error);
