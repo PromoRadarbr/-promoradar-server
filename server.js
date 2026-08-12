@@ -136,7 +136,62 @@ app.get("/grupos", async (req, res) => {
   }
 
 });
+  });
+});
 
+// =====================================================
+// BUSCAR GRUPO PELO LINK DE CONVITE
+// =====================================================
+
+app.get("/grupo-convite", async (req, res) => {
+
+  const { code } = req.query;
+
+  if (!code) {
+    return res.status(400).json({
+      erro: "Informe o código do convite."
+    });
+  }
+
+  if (!WASENDER_API_TOKEN) {
+    return res.status(500).json({
+      erro: "WASENDER_API_TOKEN não configurado."
+    });
+  }
+
+  try {
+
+    const response = await fetch(
+      `${WASENDER_API_URL}/groups/invite/${encodeURIComponent(code)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${WASENDER_API_TOKEN}`
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json(data);
+    }
+
+    res.json(data);
+
+  } catch (error) {
+
+    console.error(
+      "ERRO /grupo-convite:",
+      error
+    );
+
+    res.status(500).json({
+      erro: "Erro ao buscar grupo pelo convite."
+    });
+  }
+});
 
 // =====================================================
 // BUSCAR OFERTAS NO MERCADO LIVRE
