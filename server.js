@@ -671,8 +671,26 @@ ${desconto}
 ⚡ PromoRadar | Ofertas`;
 
     console.log("MENSAGEM PRONTA:");
-    console.log(mensagemOferta);
-    res.sendStatus(200);
+console.log(mensagemOferta);
+
+const respostaEnvio = await fetch(
+  ${process.env.WHAPI_API_URL}/messages/text,
+  {
+    method: "POST",
+    headers: {
+      "Authorization": Bearer ${process.env.WHAPI_TOKEN},
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      to: "120363410292212824@newsletter",
+      body: mensagemOferta
+    })
+  }
+);
+
+console.log("RESULTADO:", await respostaEnvio.json());
+
+res.sendStatus(200);
 
   } catch (error) {
     console.error("ERRO AO PROCESSAR NOTIFICAÇÃO:", error);
