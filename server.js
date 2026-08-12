@@ -244,300 +244,73 @@ app.get("/ofertas", async (req, res) => {
 
   if (!q) {
     return res.status(400).json({
-      erro:
-        "Informe o produto. Exemplo: /ofertas?q=iphone"
+      erro: "Informe o produto. Exemplo: /ofertas?q=celular"
     });
   }
 
   if (!accessToken) {
     return res.status(401).json({
-      erro:
-        "PromoRadar ainda não está autorizado."
+      erro: "PromoRadar ainda não está autorizado."
     });
   }
 
   try {
+    const url =
+      "https://api.mercadolibre.com/sites/MLB/search" +
+      `?q=${encodeURIComponent(q)}` +
+      "&limit=20";
 
-    // -------------------------------------------------
-    // 1. ENCONTRAR PRODUTOS DE CATÁLOGO
-    // -------------------------------------------------
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
 
-    const domainResponse = await fetch(
-  "https://api.mercadolibre.com/sites/MLB/domain_discovery/search" +
-  `?q=${encodeURIComponent(q)}`,
-  {
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  }
-);
+    const data = await response.json();
 
-const domains = await domainResponse.json();
-
-const domainId =
-  domains?.[0]?.domain_id || null;
-
-const searchUrl =
-  "https://api.mercadolibre.com/products/search" +
-  "?status=active" +
-  "&site_id=MLB" +
-  `&q=${encodeURIComponent(q)}` +
-  (domainId
-    ? `&domain_id=${encodeURIComponent(domainId)}`
-    : "") +
-  "&limit=50";
-
-    const searchResponse =
-      await fetch(searchUrl, {
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`
-        }
-      });
-
-    const searchData =
-      await searchResponse.json();
-
-    if (!searchResponse.ok) {
-      return res
-        .status(searchResponse.status)
-        .json(searchData);
+    if (!response.ok) {
+      return res.status(response.status).json(data);
     }
 
-    const ofertas = [];
-
-    // -------------------------------------------------
-    // 2. BUSCAR VENDEDORES CONCORRENTES
-    // -------------------------------------------------
-
-    for (
-      const produto
-      of searchData.results || []
-    ) {
-
-      try {
-
-        const itemsUrl =
-          `https://api.mercadolibre.com/products/${produto.id}/items?limit=50`;
-
-        const itemsResponse =
-          await fetch(itemsUrl, {
-            headers: {
-              Authorization:
-                `Bearer ${accessToken}`
-            }
-          });
-
-        const itemsData =
-          await itemsResponse.json();
-
-        if (!itemsResponse.ok) {
-          console.error(
-            "Erro ao consultar concorrentes:",
-            produto.id,
-            itemsData
-          );
-
-          continue;
-        }
-
-        // -------------------------------------------------
-        // 3. ADICIONAR PUBLICAÇÕES
-        // -------------------------------------------------
-
-        for (
-          const item
-          of itemsData.results || []
-        ) {
-
-          ofertas.push({
-            product_id:
-              produto.id,
-
-            item_id:
-              item.item_id || null,
-link:
-  item.item_id
-    ? `https://produto.mercadolivre.com.br/${item.item_id}`
-    : null,
-            titulo:
-              produto.name || null,
-
-            preco:
-              item.price ?? null,
-
-            moeda:
-              item.currency_id || null,
-
-            vendedor:
-              item.seller_id || null,
-
-            condicao:
-              item.condition || null,
-
-            imagem:
-              produto.pictures?.[0]?.url ||
-              null,
-
-            frete_gratis:
-              item.shipping?.free_shipping ||
-              false,
-
-            desconto:
-              item.original_price &&
-              item.price &&
-              item.original_price > item.price
-                ? Math.round(
-                    (
-                      (item.original_price -
-                        item.price) /
-                      item.original_price
-                    ) * 100
-                  )
-                : 0
-          });
-        }
-
-      } catch (error) {
-
-        console.error(
-          "Erro no produto:",
-          produto.id,
-          error
-        );
-      }
-    }
-
-    // -------------------------------------------------
-    // 4. COMPARAR PREÇOS DO MESMO PRODUTO
-    // -------------------------------------------------
-
-    const gruposProdutos = {};
-
-    for (const oferta of ofertas) {
-      if (
-        !oferta.product_id ||
-        oferta.preco === null
-      ) {
-        continue;
-      }
-
-      if (!gruposProdutos[oferta.product_id]) {
-        gruposProdutos[oferta.product_id] = [];
-      }
-
-      gruposProdutos[oferta.product_id].push(oferta);
-    }
-
-    for (const productId of Object.keys(gruposProdutos)) {
-      const grupo = gruposProdutos[productId];
-
-      if (grupo.length < 2) {
-        continue;
-      }
-
-      const precos = grupo
-        .map((oferta) => oferta.preco)
-        .filter((preco) => typeof preco === "number");
-
-      if (precos.length < 2) {
-        continue;
-      }
-
-      const media =
-        precos.reduce(
-          (total, preco) => total + preco,
-          0
-        ) / precos.length;
-
-      for (const oferta of grupo) {
-        oferta.media_preco =
-          Math.round(media * 100) / 100;
-
-        oferta.economia_vs_media =
-          Math.round(
-            ((media - oferta.preco) / media) * 100
-          );
-      }
-    }
-
-    // -------------------------------------------------
-    // 5. REMOVER DUPLICADOS
-    // -------------------------------------------------
-    // -------------------------------------------------
-    // 4. REMOVER DUPLICADOS
-    // -------------------------------------------------
-
-    const ofertasUnicas =
-      Array.from(
-        new Map(
-          ofertas
-            .filter(
-              (oferta) =>
-                oferta.item_id
+    const ofertas = (data.results || []).map((item) => ({
+      item_id: item.id || null,
+      titulo: item.title || null,
+      preco: item.price ?? null,
+      preco_original: item.original_price ?? null,
+      moeda: item.currency_id || "BRL",
+      vendedor: item.seller?.id || null,
+      link: item.permalink || null,
+      imagem: item.thumbnail || null,
+      frete_gratis: item.shipping?.free_shipping || false,
+      desconto:
+        item.original_price &&
+        item.price &&
+        item.original_price > item.price
+          ? Math.round(
+              ((item.original_price - item.price) /
+                item.original_price) *
+                100
             )
-            .map(
-              (oferta) => [
-                oferta.item_id,
-                oferta
-              ]
-            )
-        ).values()
-      );
+          : 0
+    }));
 
-
-    // -------------------------------------------------
-    // 5. COLOCAR OS MENORES PREÇOS PRIMEIRO
-    // -------------------------------------------------
-
-    ofertasUnicas.sort((a, b) => {
-
-      if (
-        a.preco === null &&
-        b.preco === null
-      ) {
-        return 0;
-      }
-
-      if (a.preco === null) {
-        return 1;
-      }
-
-      if (b.preco === null) {
-        return -1;
-      }
-
+    ofertas.sort((a, b) => {
+      if (a.preco === null) return 1;
+      if (b.preco === null) return -1;
       return a.preco - b.preco;
     });
 
-
-    // -------------------------------------------------
-    // 6. RETORNO
-    // -------------------------------------------------
-
     res.json({
       busca: q,
-
-      produtos_encontrados:
-        searchData.results?.length || 0,
-
-      ofertas_encontradas:
-        ofertasUnicas.length,
-
-      ofertas:
-        ofertasUnicas.slice(0, 50)
+      ofertas_encontradas: ofertas.length,
+      ofertas
     });
 
   } catch (error) {
-
-    console.error(
-      "ERRO GERAL /ofertas:",
-      error
-    );
+    console.error("ERRO /ofertas:", error);
 
     res.status(500).json({
-      erro:
-        "Erro ao buscar ofertas."
+      erro: "Erro ao buscar ofertas."
     });
   }
 });
