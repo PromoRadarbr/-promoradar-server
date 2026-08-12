@@ -4,9 +4,20 @@ const app = express();
 
 app.use(express.json());
 
-let accessToken = null;
-let refreshToken = null;
+const PORT = process.env.PORT || 3000;
 
+// =====================================================
+// CONFIGURAÇÕES
+// =====================================================
+
+const WHAPI_API_URL =
+  (process.env.WHAPI_API_URL || "https://gate.whapi.cloud").replace(/\/$/, "");
+
+const WHAPI_TOKEN = process.env.WHAPI_TOKEN;
+
+// ID DO CANAL PROMORADAR
+const CANAL_PROMORADAR =
+  "120363410292212824@newsletter";
 
 // =====================================================
 // INÍCIO
@@ -16,227 +27,20 @@ app.get("/", (req, res) => {
   res.send("PromoRadar online!");
 });
 
-
 // =====================================================
-// AUTORIZAÇÃO MERCADO LIVRE
+// STATUS
 // =====================================================
 
-app.get("/auth", (req, res) => {
-  const clientId = process.env.ML_CLIENT_ID;
-  const redirectUri = process.env.ML_REDIRECT_URI;
-
-  if (!clientId || !redirectUri) {
-    return res.status(500).send(
-      "ML_CLIENT_ID ou ML_REDIRECT_URI não configurado."
-    );
-  }
-
-  const authUrl =
-    "https://auth.mercadolivre.com.br/authorization" +
-    "?response_type=code" +
-    `&client_id=${clientId}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-  res.redirect(authUrl);
+app.get("/status", (req, res) => {
+  res.json({
+    online: true,
+    whatsapp_configurado: !!WHAPI_TOKEN,
+    servidor: "PromoRadar"
+  });
 });
 
-
 // =====================================================
-// CALLBACK
-// =====================================================
-
-app.get("/auth/callback", async (req, res) => {
-  const { code } = req.query;
-
-  if (!code) {
-    return res.status(400).send(
-      "Código de autorização não recebido."
-    );
-  }
-
-  try {
-    const response = await fetch(
-      "https://api.mercadolibre.com/oauth/token",
-      {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type":
-            "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: process.env.ML_CLIENT_ID,
-          client_secret: process.env.ML_CLIENT_SECRET,
-          code: code,
-          redirect_uri: process.env.ML_REDIRECT_URI
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("ERRO OAUTH:", data);
-      return res.status(response.status).json(data);
-    }
-
-    accessToken = data.access_token;
-    refreshToken = data.refresh_token || null;
-
-    console.log(
-      "Mercado Livre conectado. Usuário:",
-      data.user_id
-    );
-
-    res.send(`
-      <h1>PromoRadar conectado!</h1>
-      <p>Autorização realizada com sucesso.</p>
-      <p>Usuário: ${data.user_id}</p>
-    `);
-
-  } catch (error) {
-    console.error("ERRO OAUTH:", error);
-
-    res.status(500).send(
-      "Erro interno ao conectar com o Mercado Livre."
-    );
-  }
-});
-
-
-// =====================================================
-// TESTAR CONEXÃO
-// =====================================================
-
-app.get("/test-ml", async (req, res) => {
-  if (!accessToken) {
-    return res.status(401).json({
-      conectado: false,
-      mensagem:
-        "PromoRadar ainda não está autorizado."
-    });
-  }
-
-  try {
-    const response = await fetch(
-      "https://api.mercadolibre.com/users/me",
-      {
-        headers: {
-          Authorization:
-            `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res
-        .status(response.status)
-        .json(data);
-    }
-
-    res.json({
-      conectado: true,
-      usuario: data.nickname || null,
-      id: data.id || null,
-      pais: data.country_id || null
-    });
-
-  } catch (error) {
-    console.error("ERRO /test-ml:", error);
-
-    res.status(500).json({
-      conectado: false,
-      erro:
-        "Erro ao consultar o Mercado Livre."
-    });
-  }
-});
-
-
-// =====================================================
-// BUSCAR PRODUTOS
-// =====================================================
-
-app.get("/buscar", async (req, res) => {
-  const { q } = req.query;
-
-  if (!q) {
-    return res.status(400).json({
-      erro:
-        "Informe o produto. Exemplo: /buscar?q=iphone"
-    });
-  }
-
-  if (!accessToken) {
-    return res.status(401).json({
-      erro:
-        "PromoRadar ainda não está autorizado."
-    });
-  }
-
-  try {
-    const url =
-      "https://api.mercadolibre.com/products/search" +
-      "?status=active" +
-      "&site_id=MLB" +
-      `&q=${encodeURIComponent(q)}` +
-      "&limit=20";
-
-    const response = await fetch(url, {
-      headers: {
-        Authorization:
-          `Bearer ${accessToken}`
-      }
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res
-        .status(response.status)
-        .json(data);
-    }
-
-    const produtos =
-      (data.results || []).map((produto) => ({
-        product_id:
-          produto.id || null,
-
-        titulo:
-          produto.name || null,
-
-        imagem:
-          produto.pictures?.[0]?.url || null
-      }));
-
-    res.json({
-      busca: q,
-
-      produtos_encontrados:
-        produtos.length,
-
-      total:
-        data.paging?.total || 0,
-
-      produtos
-    });
-
-  } catch (error) {
-    console.error("ERRO /buscar:", error);
-
-    res.status(500).json({
-      erro:
-        "Erro ao buscar produtos."
-    });
-  }
-});
-
-
-// =====================================================
-// BUSCAR OFERTAS / MELHORES PREÇOS
+// BUSCAR OFERTAS NO MERCADO LIVRE
 // =====================================================
 
 app.get("/ofertas", async (req, res) => {
@@ -248,23 +52,14 @@ app.get("/ofertas", async (req, res) => {
     });
   }
 
-  if (!accessToken) {
-    return res.status(401).json({
-      erro: "PromoRadar ainda não está autorizado."
-    });
-  }
-
   try {
     const url =
       "https://api.mercadolibre.com/sites/MLB/search" +
       `?q=${encodeURIComponent(q)}` +
-      "&limit=20";
+      "&limit=20" +
+      "&sort=price_asc";
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+    const response = await fetch(url);
 
     const data = await response.json();
 
@@ -272,244 +67,280 @@ app.get("/ofertas", async (req, res) => {
       return res.status(response.status).json(data);
     }
 
-    const ofertas = (data.results || []).map((item) => ({
-      item_id: item.id || null,
-      titulo: item.title || null,
-      preco: item.price ?? null,
-      preco_original: item.original_price ?? null,
-      moeda: item.currency_id || "BRL",
-      vendedor: item.seller?.id || null,
-      link: item.permalink || null,
-      imagem: item.thumbnail || null,
-      frete_gratis: item.shipping?.free_shipping || false,
-      desconto:
+    const ofertas = (data.results || []).map((item) => {
+
+      let desconto = 0;
+
+      if (
         item.original_price &&
         item.price &&
         item.original_price > item.price
-          ? Math.round(
-              ((item.original_price - item.price) /
-                item.original_price) *
-                100
-            )
-          : 0
-    }));
+      ) {
+        desconto = Math.round(
+          ((item.original_price - item.price) /
+            item.original_price) *
+            100
+        );
+      }
 
-    ofertas.sort((a, b) => {
-      if (a.preco === null) return 1;
-      if (b.preco === null) return -1;
-      return a.preco - b.preco;
+      return {
+        item_id: item.id || null,
+
+        titulo: item.title || null,
+
+        preco: item.price ?? null,
+
+        preco_original:
+          item.original_price ?? null,
+
+        desconto,
+
+        link:
+          item.permalink || null,
+
+        imagem:
+          item.thumbnail || null,
+
+        frete_gratis:
+          item.shipping?.free_shipping || false
+      };
     });
 
     res.json({
       busca: q,
-      ofertas_encontradas: ofertas.length,
+
+      produtos_encontrados:
+        data.paging?.total || 0,
+
+      ofertas_encontradas:
+        ofertas.length,
+
       ofertas
     });
 
   } catch (error) {
+
     console.error("ERRO /ofertas:", error);
 
     res.status(500).json({
-      erro: "Erro ao buscar ofertas."
+      erro: "Erro ao buscar ofertas no Mercado Livre."
     });
   }
 });
 
+// =====================================================
+// ENVIAR OFERTA PARA O CANAL PROMORADAR
+// =====================================================
 
-// =====================================================
-// NOTIFICAÇÕES
-// =====================================================
-app.get("/notifications", (req, res) => {
-  res.status(200).send("PromoRadar notifications online!");
-});
-app.post("/notifications", async (req, res) => {
+app.get("/enviar", async (req, res) => {
+
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({
+      erro: "Informe o produto. Exemplo: /enviar?q=celular"
+    });
+  }
+
+  if (!WHAPI_TOKEN) {
+    return res.status(500).json({
+      erro: "WHAPI_TOKEN não configurado no Render."
+    });
+  }
+
   try {
-    const dados = req.body;
 
-    console.log("NOTIFICAÇÃO RECEBIDA:");
-    console.log(JSON.stringify(dados, null, 2));
-    // Ignora mensagens enviadas pelo próprio PromoRadar
-    const mensagensRecebidas =
-  dados?.data?.messages ??
-  dados?.messages ??
-  dados?.[0] ??
-  dados;
+    // -------------------------------------------------
+    // BUSCAR PRODUTOS
+    // -------------------------------------------------
 
-const mensagem =
-  Array.isArray(mensagensRecebidas)
-    ? mensagensRecebidas[0]
-    : mensagensRecebidas;
+    const url =
+      "https://api.mercadolibre.com/sites/MLB/search" +
+      `?q=${encodeURIComponent(q)}` +
+      "&limit=20" +
+      "&sort=price_asc";
 
-if (
-  mensagem?.key?.fromMe === true ||
-  mensagem?.fromMe === true ||
-  mensagem?.from_me === true
-) {
-  console.log("Mensagem enviada pelo próprio PromoRadar. Ignorando.");
-  return res.sendStatus(200);
-}
+    const response = await fetch(url);
 
-const texto =
-    mensagem?.text?.body ??
-    mensagem?.message?.text?.body ??
-    mensagem?.message?.conversation ??
-    mensagem?.messageBody ??
-    mensagem?.conversation ??
-    mensagem?.body ??
-    mensagem?.text ??
-    "";
+    const data = await response.json();
 
-console.log("TEXTO DA MENSAGEM:", texto);
-
-   // Preço
-const precosEncontrados = [
-  ...texto.matchAll(/R\$\s*([\d.]+(?:,\d{2})?)/gi)
-];
-
-const precoOriginal = precosEncontrados[0]
-  ? precosEncontrados[0][1]
-  : null;
-
-const precoAtual = precosEncontrados[1]
-  ? precosEncontrados[1][1]
-  : precoOriginal;
-
-// Link
-const linkEncontrado = texto.match(
-  /https?:\/\/[^\s]+/i
-);
-
-// Produto
-const linhas = texto
-  .split("\n")
-  .map(linha => linha.trim())
-  .filter(Boolean);
-
-const produtoEncontrado = linhas.find(linha =>
-  !/oferta imperdível/i.test(linha) &&
-  !/R\$/i.test(linha) &&
-  !/https?:\/\//i.test(linha) &&
-  !/^\d+%\s*OFF/i.test(linha) &&
-  !/^🔥|^🛍️|^❌|^💰|^🔗|^⚡/u.test(linha) &&
-  linha.length >= 3
-);
-
-const produto = produtoEncontrado
-  ? produtoEncontrado
-      .replace(/^🛍️\s*/u, "")
-      .trim()
-  : "Produto não identificado";
-
-const oferta = {
-  produto,
-  precoOriginal,
-  precoAtual,
-  link: linkEncontrado
-    ? linkEncontrado[0].replace(/[),.;]+$/, "")
-    : null
-};
-
-    console.log("OFERTA IDENTIFICADA:");
-    console.log(JSON.stringify(oferta, null, 2));
-    // MENSAGEM PRONTA PARA PUBLICAÇÃO
-
-    const converterPreco = (valor) => {
-  if (!valor) return null;
-
-  const numero = String(valor)
-    .replace(/R\$/gi, "")
-    .replace(/\s/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
-
-  const resultado = Number(numero);
-
-  return Number.isFinite(resultado) ? resultado : null;
-};
-
-const valorOriginal = converterPreco(oferta.precoOriginal);
-const valorAtual = converterPreco(oferta.precoAtual);
-
-    let desconto = "";
-
-    if (valorOriginal && valorAtual && valorOriginal > valorAtual) {
-      const percentual = Math.round(
-        ((valorOriginal - valorAtual) / valorOriginal) * 100
-      );
-
-      desconto = `📉 ${percentual}% OFF`;
+    if (!response.ok) {
+      return res.status(response.status).json(data);
     }
 
-    const mensagemOferta = `🔥 OFERTA IMPERDÍVEL
+    const produtos = data.results || [];
 
-🛍️ ${oferta.produto}
+    if (produtos.length === 0) {
+      return res.status(404).json({
+        erro: "Nenhum produto encontrado."
+      });
+    }
 
-❌ De R$ ${oferta.precoOriginal || "Consultar"}
-💰 Por R$ ${oferta.precoAtual || "Consultar"}
+    // -------------------------------------------------
+    // ESCOLHER OFERTA
+    // -------------------------------------------------
 
-${desconto}
+    const comDesconto = produtos
+      .filter((item) =>
+        item.original_price &&
+        item.price &&
+        item.original_price > item.price
+      )
+      .sort((a, b) => {
 
-🔗 ${oferta.link || "Link indisponível"}
+        const descontoA =
+          ((a.original_price - a.price) /
+            a.original_price) * 100;
 
-⚡ PromoRadar | Ofertas`;
+        const descontoB =
+          ((b.original_price - b.price) /
+            b.original_price) * 100;
 
-    const respostaEnvio = await fetch(
-  process.env.WHAPI_API_URL + "/messages/text",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + process.env.WHAPI_TOKEN,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      to: "120363410292212824@newsletter",
-      body: mensagemOferta
-    })
-  }
-);
+        return descontoB - descontoA;
+      });
 
-const resultadoEnvio = await respostaEnvio.json();
+    const oferta =
+      comDesconto[0] || produtos[0];
 
-console.log("RESULTADO DO ENVIO:");
-console.log(JSON.stringify(resultadoEnvio, null, 2));
+    let desconto = 0;
 
-res.sendStatus(200);
+    if (
+      oferta.original_price &&
+      oferta.price &&
+      oferta.original_price > oferta.price
+    ) {
+
+      desconto = Math.round(
+        ((oferta.original_price - oferta.price) /
+          oferta.original_price) *
+          100
+      );
+    }
+
+    // -------------------------------------------------
+    // MONTAR MENSAGEM
+    // -------------------------------------------------
+
+    let mensagem = `🔥 *OFERTA PROMORADAR*
+
+🛍️ *${oferta.title}*
+
+💰 *Por R$ ${Number(oferta.price)
+      .toFixed(2)
+      .replace(".", ",")}*`;
+
+    if (oferta.original_price) {
+
+      mensagem +=
+        `\n❌ De R$ ${Number(oferta.original_price)
+          .toFixed(2)
+          .replace(".", ",")}`;
+    }
+
+    if (desconto > 0) {
+
+      mensagem +=
+        `\n📉 *${desconto}% OFF*`;
+    }
+
+    if (oferta.shipping?.free_shipping) {
+
+      mensagem +=
+        `\n🚚 *Frete grátis*`;
+    }
+
+    mensagem +=
+      `\n\n🔗 ${oferta.permalink}`;
+
+    mensagem +=
+      `\n\n⚡ PromoRadar | Ofertas`;
+
+    // -------------------------------------------------
+    // ENVIAR PARA WHATSAPP
+    // -------------------------------------------------
+
+    const envio = await fetch(
+      `${WHAPI_API_URL}/messages/text`,
+      {
+        method: "POST",
+
+        headers: {
+          Authorization:
+            `Bearer ${WHAPI_TOKEN}`,
+
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          to: CANAL_PROMORADAR,
+          body: mensagem
+        })
+      }
+    );
+
+    const resultado =
+      await envio.json();
+
+    if (!envio.ok) {
+
+      console.error(
+        "ERRO WHAPI:",
+        resultado
+      );
+
+      return res.status(envio.status).json({
+        erro: "Erro ao enviar para o WhatsApp.",
+        detalhes: resultado
+      });
+    }
+
+    // -------------------------------------------------
+    // SUCESSO
+    // -------------------------------------------------
+
+    res.json({
+
+      enviado: true,
+
+      produto:
+        oferta.title,
+
+      preco:
+        oferta.price,
+
+      desconto,
+
+      link:
+        oferta.permalink,
+
+      whatsapp:
+        resultado
+
+    });
 
   } catch (error) {
-    console.error("ERRO AO PROCESSAR NOTIFICAÇÃO:", error);
-    res.sendStatus(500);
+
+    console.error(
+      "ERRO /enviar:",
+      error
+    );
+
+    res.status(500).json({
+      erro:
+        "Erro ao processar e enviar a oferta."
+    });
   }
 });
-
-
-// =====================================================
-// STATUS
-// =====================================================
-
-app.get("/status", (req, res) => {
-
-  res.json({
-    online: true,
-
-    mercado_livre_autorizado:
-      !!accessToken,
-
-    servidor:
-      "PromoRadar"
-  });
-});
-
 
 // =====================================================
 // SERVIDOR
 // =====================================================
-
-const PORT =
-  process.env.PORT || 3000;
 
 app.listen(PORT, () => {
 
   console.log(
     `Servidor PromoRadar rodando na porta ${PORT}`
   );
+
 });
