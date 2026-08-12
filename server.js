@@ -37,49 +37,13 @@ app.get("/status", (req, res) => {
 
   res.json({
     online: true,
-
-    wasender_configurado:
-      !!WASENDER_API_TOKEN,
-
-    grupo_configurado:
-      !!WHATSAPP_GROUP_ID,
-
-    servidor:
-      "PromoRadar"
+    wasender_configurado: !!WASENDER_API_TOKEN,
+    grupo_configurado: !!WHATSAPP_GROUP_ID,
+    servidor: "PromoRadar"
   });
 
 });
-// =====================================================
-// LISTAR GRUPOS DO WHATSAPP
-// =====================================================
 
-app.get("/grupos", async (req, res) => {
-  try {
-    const resposta = await fetch(
-      `${WASENDER_API_URL}/groups`,
-      {
-        headers: {
-          Authorization: `Bearer ${WASENDER_API_TOKEN}`
-        }
-      }
-    );
-
-    const resultado = await resposta.json();
-
-    if (!resposta.ok) {
-      return res.status(resposta.status).json(resultado);
-    }
-
-    res.json(resultado);
-
-  } catch (error) {
-    console.error("ERRO /grupos:", error);
-
-    res.status(500).json({
-      erro: "Erro ao buscar grupos do WhatsApp."
-    });
-  }
-});
 
 // =====================================================
 // LISTAR GRUPOS DO WHATSAPP
@@ -90,8 +54,7 @@ app.get("/grupos", async (req, res) => {
   if (!WASENDER_API_TOKEN) {
 
     return res.status(500).json({
-      erro:
-        "WASENDER_API_TOKEN não configurado."
+      erro: "WASENDER_API_TOKEN não configurado."
     });
 
   }
@@ -108,8 +71,7 @@ app.get("/grupos", async (req, res) => {
       }
     );
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
 
@@ -136,62 +98,7 @@ app.get("/grupos", async (req, res) => {
   }
 
 });
-  });
-});
 
-// =====================================================
-// BUSCAR GRUPO PELO LINK DE CONVITE
-// =====================================================
-
-app.get("/grupo-convite", async (req, res) => {
-
-  const { code } = req.query;
-
-  if (!code) {
-    return res.status(400).json({
-      erro: "Informe o código do convite."
-    });
-  }
-
-  if (!WASENDER_API_TOKEN) {
-    return res.status(500).json({
-      erro: "WASENDER_API_TOKEN não configurado."
-    });
-  }
-
-  try {
-
-    const response = await fetch(
-      `${WASENDER_API_URL}/groups/invite/${encodeURIComponent(code)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${WASENDER_API_TOKEN}`
-        }
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res
-        .status(response.status)
-        .json(data);
-    }
-
-    res.json(data);
-
-  } catch (error) {
-
-    console.error(
-      "ERRO /grupo-convite:",
-      error
-    );
-
-    res.status(500).json({
-      erro: "Erro ao buscar grupo pelo convite."
-    });
-  }
-});
 
 // =====================================================
 // BUSCAR OFERTAS NO MERCADO LIVRE
@@ -240,15 +147,13 @@ app.get("/ofertas", async (req, res) => {
         if (
           item.original_price &&
           item.price &&
-          item.original_price >
-            item.price
+          item.original_price > item.price
         ) {
 
           desconto =
             Math.round(
               (
-                (item.original_price -
-                  item.price) /
+                (item.original_price - item.price) /
                 item.original_price
               ) * 100
             );
@@ -278,8 +183,7 @@ app.get("/ofertas", async (req, res) => {
             item.thumbnail || null,
 
           frete_gratis:
-            item.shipping?.free_shipping ||
-            false
+            item.shipping?.free_shipping || false
 
         };
 
@@ -399,34 +303,25 @@ app.get("/enviar", async (req, res) => {
         .filter((item) =>
           item.original_price &&
           item.price &&
-          item.original_price >
-            item.price
+          item.original_price > item.price
         )
         .sort((a, b) => {
 
           const descontoA =
             (
-              (a.original_price -
-                a.price) /
+              (a.original_price - a.price) /
               a.original_price
             ) * 100;
 
           const descontoB =
             (
-              (b.original_price -
-                b.price) /
+              (b.original_price - b.price) /
               b.original_price
             ) * 100;
 
-          return descontoB -
-            descontoA;
+          return descontoB - descontoA;
 
         });
-
-
-    // Se existir produto com desconto,
-    // escolhe o maior desconto.
-    // Caso contrário, escolhe o mais barato.
 
     const oferta =
       comDesconto[0] ||
@@ -442,15 +337,13 @@ app.get("/enviar", async (req, res) => {
     if (
       oferta.original_price &&
       oferta.price &&
-      oferta.original_price >
-        oferta.price
+      oferta.original_price > oferta.price
     ) {
 
       desconto =
         Math.round(
           (
-            (oferta.original_price -
-              oferta.price) /
+            (oferta.original_price - oferta.price) /
             oferta.original_price
           ) * 100
         );
@@ -466,7 +359,6 @@ app.get("/enviar", async (req, res) => {
       Number(oferta.price)
         .toFixed(2)
         .replace(".", ",");
-
 
     const precoOriginal =
       oferta.original_price
@@ -487,14 +379,12 @@ app.get("/enviar", async (req, res) => {
 
 💰 *Por R$ ${precoAtual}*`;
 
-
     if (precoOriginal) {
 
       mensagem +=
         `\n❌ De R$ ${precoOriginal}`;
 
     }
-
 
     if (desconto > 0) {
 
@@ -503,20 +393,15 @@ app.get("/enviar", async (req, res) => {
 
     }
 
-
-    if (
-      oferta.shipping?.free_shipping
-    ) {
+    if (oferta.shipping?.free_shipping) {
 
       mensagem +=
         `\n🚚 *Frete grátis*`;
 
     }
 
-
     mensagem +=
       `\n\n🔗 ${oferta.permalink}`;
-
 
     mensagem +=
       `\n\n⚡ *PromoRadar | Ofertas*`;
@@ -556,7 +441,6 @@ app.get("/enviar", async (req, res) => {
 
         }
       );
-
 
     const resultado =
       await envio.json();
