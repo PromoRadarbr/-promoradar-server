@@ -638,13 +638,22 @@ const oferta = {
     console.log(JSON.stringify(oferta, null, 2));
     // MENSAGEM PRONTA PARA PUBLICAÇÃO
 
-    const valorOriginal = oferta.precoOriginal
-      ? Number(oferta.precoOriginal.replace(/\./g, "").replace(",", "."))
-      : null;
+    const converterPreco = (valor) => {
+  if (!valor) return null;
 
-    const valorAtual = oferta.precoAtual
-      ? Number(oferta.precoAtual.replace(/\./g, "").replace(",", "."))
-      : null;
+  const numero = String(valor)
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+
+  const resultado = Number(numero);
+
+  return Number.isFinite(resultado) ? resultado : null;
+};
+
+const valorOriginal = converterPreco(oferta.precoOriginal);
+const valorAtual = converterPreco(oferta.precoAtual);
 
     let desconto = "";
 
