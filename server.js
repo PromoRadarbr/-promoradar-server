@@ -576,6 +576,12 @@ if (
 
 const texto =
     mensagem?.text?.body ??
+    mensagem?.message?.text?.body ??
+    mensagem?.message?.conversation ??
+    mensagem?.messageBody ??
+    mensagem?.conversation ??
+    mensagem?.body ??
+    mensagem?.text ??
     "";
 
 console.log("TEXTO DA MENSAGEM:", texto);
