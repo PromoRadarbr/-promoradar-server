@@ -49,7 +49,37 @@ app.get("/status", (req, res) => {
   });
 
 });
+// =====================================================
+// LISTAR GRUPOS DO WHATSAPP
+// =====================================================
 
+app.get("/grupos", async (req, res) => {
+  try {
+    const resposta = await fetch(
+      `${WASENDER_API_URL}/groups`,
+      {
+        headers: {
+          Authorization: `Bearer ${WASENDER_API_TOKEN}`
+        }
+      }
+    );
+
+    const resultado = await resposta.json();
+
+    if (!resposta.ok) {
+      return res.status(resposta.status).json(resultado);
+    }
+
+    res.json(resultado);
+
+  } catch (error) {
+    console.error("ERRO /grupos:", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar grupos do WhatsApp."
+    });
+  }
+});
 
 // =====================================================
 // LISTAR GRUPOS DO WHATSAPP
