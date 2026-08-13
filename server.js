@@ -47,7 +47,52 @@ app.get("/", (req, res) => {
   res.send("PromoRadar online!");
 
 });
+// =====================================================
+// TESTE MERCADO LIVRE
+// =====================================================
 
+app.get("/teste-ml", async (req, res) => {
+
+  if (!mlAccessToken) {
+    return res.status(401).json({
+      erro: "Access Token do Mercado Livre não está carregado."
+    });
+  }
+
+  try {
+
+    const resposta = await fetch(
+      "https://api.mercadolibre.com/users/me",
+      {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${mlAccessToken}`,
+          "Accept": "application/json"
+        }
+      }
+    );
+
+    const resultado = await resposta.json();
+
+    res.status(resposta.status).json(resultado);
+
+  } catch (error) {
+
+    res.status(500).json({
+      erro: "Erro ao consultar Mercado Livre.",
+      detalhes: error.message
+    });
+
+  }
+
+});
+
+
+// =====================================================
+// STATUS
+// =====================================================
+
+app.get("/status", (req, res) => {
 
 // =====================================================
 // STATUS
