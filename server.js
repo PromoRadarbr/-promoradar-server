@@ -674,7 +674,65 @@ app.get("/enviar", async (req, res) => {
   }
 
 });
+// =====================================================
+// TESTE Z-API
+// =====================================================
 
+app.get("/teste-whatsapp", async (req, res) => {
+
+  if (!ZAPI_INSTANCE_ID || !ZAPI_TOKEN || !ZAPI_CLIENT_TOKEN) {
+    return res.status(500).json({
+      erro: "Credenciais da Z-API não configuradas."
+    });
+  }
+
+  try {
+
+    const resposta = await fetch(
+      `${ZAPI_URL}/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Client-Token": ZAPI_CLIENT_TOKEN
+        },
+
+        body: JSON.stringify({
+          phone: WHATSAPP_GROUP_ID,
+          message: "🟢 Teste PromoRadar — Z-API funcionando!"
+        })
+      }
+    );
+
+    const resultado = await resposta.json();
+
+    console.log("RESPOSTA Z-API:", resultado);
+
+    if (!resposta.ok) {
+      return res.status(resposta.status).json({
+        enviado: false,
+        resultado
+      });
+    }
+
+    res.json({
+      enviado: true,
+      resultado
+    });
+
+  } catch (error) {
+
+    console.error("ERRO TESTE Z-API:", error);
+
+    res.status(500).json({
+      enviado: false,
+      erro: "Erro ao conectar com a Z-API."
+    });
+
+  }
+
+});
 
 // =====================================================
 // SERVIDOR
