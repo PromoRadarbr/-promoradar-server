@@ -1,5 +1,5 @@
 const express = require("express");
-
+const crypto = require("crypto");
 const app = express();
 
 app.use(express.json());
@@ -24,7 +24,19 @@ const ZAPI_CLIENT_TOKEN =
 
 const WHATSAPP_GROUP_ID =
   process.env.WHATSAPP_GROUP_ID;
+const ML_CLIENT_ID =
+  process.env.ML_CLIENT_ID;
 
+const ML_CLIENT_SECRET =
+  process.env.ML_CLIENT_SECRET;
+
+const ML_REDIRECT_URI =
+  process.env.ML_REDIRECT_URI;
+
+let mlAccessToken = null;
+let mlRefreshToken = null;
+let mlCodeVerifier = null;
+let mlState = null;
 
 // =====================================================
 // INÍCIO
@@ -619,7 +631,155 @@ app.get("/teste-whatsapp", async (req, res) => {
   }
 
 });
+// =====================================================
+// AUTORIZAÇÃO MERCADO LIVRE
+// =====================================================
 
+app.get("/auth", (req, res) => {
+
+  if (!ML_CLIENT_ID || !ML_REDIRECT_URI) {
+    return res.status(500).json({
+      erro: "ML_CLIENT_ID ou ML_REDIRECT_URI não configurado."
+    });
+  }
+
+  mlCodeVerifier = crypto
+    .randomBytes(64)
+    .toString("base64url");
+
+  const mlCodeChallenge = crypto
+    .createHash("sha256")
+    .update(mlCodeVerifier)
+    .digest("base64url");
+
+  mlState = crypto
+    .randomBytes(32)
+    .toString("hex");
+
+  const authorizationUrl =
+    "https://auth.mercadolivre.com.br/authorization" +
+    `?response_type=code` +
+    `&client_id=${encodeURIComponent(ML_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(ML_REDIRECT_URI)}` +
+    `&code_challenge=${encodeURIComponent(mlCodeChallenge)}` +
+    `&code_challenge_method=S256` +
+    `&state=${encodeURIComponent(mlState)}`;
+
+  res.redirect(authorizationUrl);
+});
+
+
+// =====================================================
+// CALLBACK MERCADO LIVRE
+// =====================================================
+
+app.get("/auth/callback", async (req, res) => {
+
+  const {
+    code,
+    state,
+    error,
+    error_description
+  } = req.query;
+
+  if (error) {
+    return res.status(400).json({
+      erro: error,
+      descricao: error_description || null
+    });
+  }
+
+  if (!code) {
+    return res.status(400).json({
+      erro: "Código de autorização não recebido."
+    });
+  }
+
+  if (!state || state !== mlState) {
+    return res.status(400).json({
+      erro: "State inválido."
+    });
+  }
+
+  if (!mlCodeVerifier) {
+    return res.status(400).json({
+      erro: "Code verifier não encontrado."
+    });
+  }
+
+  try {
+
+    const body = new URLSearchParams();
+
+    body.append("grant_type", "authorization_code");
+    body.append("client_id", ML_CLIENT_ID);
+    body.append("client_secret", ML_CLIENT_SECRET);
+    body.append("code", code);
+    body.append("redirect_uri", ML_REDIRECT_URI);
+    body.append("code_verifier", mlCodeVerifier);
+
+    const response = await fetch(
+      "https://api.mercadolibre.com/oauth/token",
+      {
+        method: "POST",
+
+        headers: {
+          "Accept": "application/json",
+          "Content-Type":
+            "application/x-www-form-urlencoded"
+        },
+
+        body: body.toString()
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+      console.error(
+        "ERRO TOKEN MERCADO LIVRE:",
+        data
+      );
+
+      return res
+        .status(response.status)
+        .json(data);
+    }
+
+    mlAccessToken = data.access_token;
+    mlRefreshToken = data.refresh_token;
+
+    mlCodeVerifier = null;
+    mlState = null;
+
+    res.json({
+      sucesso: true,
+      mensagem:
+        "Mercado Livre autorizado com sucesso.",
+      access_token_configurado:
+        !!mlAccessToken,
+      refresh_token_configurado:
+        !!mlRefreshToken,
+      user_id:
+        data.user_id || null,
+      expires_in:
+        data.expires_in || null
+    });
+
+  } catch (error) {
+
+    console.error(
+      "ERRO CALLBACK MERCADO LIVRE:",
+      error
+    );
+
+    res.status(500).json({
+      erro:
+        "Erro ao obter Access Token do Mercado Livre."
+    });
+  }
+});
 // =====================================================
 // SERVIDOR
 // =====================================================
