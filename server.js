@@ -10,11 +10,10 @@ const PORT = process.env.PORT || 3000;
 // CONFIGURAÇÕES
 // =====================================================
 
-const WASENDER_API_URL =
-  "https://www.wasenderapi.com/api";
+const WHAPI_API_URL = "https://gate.whapi.cloud";
 
-const WASENDER_API_TOKEN =
-  process.env.WASENDER_API_TOKEN;
+const WHAPI_API_TOKEN =
+  process.env.WHAPI_API_TOKEN;
 
 const WHATSAPP_GROUP_ID =
   process.env.WHATSAPP_GROUP_ID;
@@ -37,9 +36,27 @@ app.get("/status", (req, res) => {
 
   res.json({
     online: true,
-    wasender_configurado: !!WASENDER_API_TOKEN,
+    whapi_configurado: !!WHAPI_API_TOKEN,
     grupo_configurado: !!WHATSAPP_GROUP_ID,
     servidor: "PromoRadar"
+  });
+
+});
+
+
+// =====================================================
+// NOTIFICAÇÕES
+// =====================================================
+
+app.post("/notifications", (req, res) => {
+
+  console.log("====================================");
+  console.log("NOTIFICAÇÃO RECEBIDA");
+  console.log(JSON.stringify(req.body, null, 2));
+  console.log("====================================");
+
+  res.status(200).json({
+    recebido: true
   });
 
 });
@@ -51,10 +68,10 @@ app.get("/status", (req, res) => {
 
 app.get("/grupos", async (req, res) => {
 
-  if (!WASENDER_API_TOKEN) {
+  if (!WHAPI_API_TOKEN) {
 
     return res.status(500).json({
-      erro: "WASENDER_API_TOKEN não configurado."
+      erro: "WHAPI_API_TOKEN não configurado."
     });
 
   }
@@ -62,11 +79,14 @@ app.get("/grupos", async (req, res) => {
   try {
 
     const response = await fetch(
-      `${WASENDER_API_URL}/groups`,
+      `${WHAPI_API_URL}/groups?count=100`,
       {
+        method: "GET",
+
         headers: {
+          Accept: "application/json",
           Authorization:
-            `Bearer ${WASENDER_API_TOKEN}`
+            `Bearer ${WHAPI_API_TOKEN}`
         }
       }
     );
@@ -237,11 +257,11 @@ app.get("/enviar", async (req, res) => {
 
   }
 
-  if (!WASENDER_API_TOKEN) {
+  if (!WHAPI_API_TOKEN) {
 
     return res.status(500).json({
       erro:
-        "WASENDER_API_TOKEN não configurado."
+        "WHAPI_API_TOKEN não configurado."
     });
 
   }
@@ -408,20 +428,23 @@ app.get("/enviar", async (req, res) => {
 
 
     // -------------------------------------------------
-    // ENVIAR PARA O GRUPO
+    // ENVIAR PELO WHAPI
     // -------------------------------------------------
 
     const envio =
       await fetch(
-        `${WASENDER_API_URL}/send-message`,
+        `${WHAPI_API_URL}/messages/text`,
         {
 
           method: "POST",
 
           headers: {
 
+            Accept:
+              "application/json",
+
             Authorization:
-              `Bearer ${WASENDER_API_TOKEN}`,
+              `Bearer ${WHAPI_API_TOKEN}`,
 
             "Content-Type":
               "application/json"
@@ -434,7 +457,7 @@ app.get("/enviar", async (req, res) => {
               to:
                 WHATSAPP_GROUP_ID,
 
-              text:
+              body:
                 mensagem
 
             })
@@ -453,7 +476,7 @@ app.get("/enviar", async (req, res) => {
     if (!envio.ok) {
 
       console.error(
-        "ERRO WASENDER:",
+        "ERRO WHAPI:",
         resultado
       );
 
@@ -496,7 +519,7 @@ app.get("/enviar", async (req, res) => {
       link:
         oferta.permalink,
 
-      resposta_wasender:
+      resposta_whapi:
         resultado
 
     });
