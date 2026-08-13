@@ -10,10 +10,17 @@ const PORT = process.env.PORT || 3000;
 // CONFIGURAÇÕES
 // =====================================================
 
-const WHAPI_API_URL = "https://gate.whapi.cloud";
+const ZAPI_URL =
+  process.env.ZAPI_URL || "https://api.z-api.io";
 
-const WHAPI_API_TOKEN =
-  process.env.WHAPI_API_TOKEN;
+const ZAPI_INSTANCE_ID =
+  process.env.ZAPI_INSTANCE_ID;
+
+const ZAPI_TOKEN =
+  process.env.ZAPI_TOKEN;
+
+const ZAPI_CLIENT_TOKEN =
+  process.env.ZAPI_CLIENT_TOKEN;
 
 const WHATSAPP_GROUP_ID =
   process.env.WHATSAPP_GROUP_ID;
@@ -24,7 +31,9 @@ const WHATSAPP_GROUP_ID =
 // =====================================================
 
 app.get("/", (req, res) => {
+
   res.send("PromoRadar online!");
+
 });
 
 
@@ -35,10 +44,20 @@ app.get("/", (req, res) => {
 app.get("/status", (req, res) => {
 
   res.json({
+
     online: true,
-    whapi_configurado: !!WHAPI_API_TOKEN,
-    grupo_configurado: !!WHATSAPP_GROUP_ID,
-    servidor: "PromoRadar"
+
+    zapi_configurado:
+      !!ZAPI_INSTANCE_ID &&
+      !!ZAPI_TOKEN &&
+      !!ZAPI_CLIENT_TOKEN,
+
+    grupo_configurado:
+      !!WHATSAPP_GROUP_ID,
+
+    servidor:
+      "PromoRadar"
+
   });
 
 });
@@ -51,47 +70,78 @@ app.get("/status", (req, res) => {
 app.post("/notifications", (req, res) => {
 
   console.log("====================================");
-  console.log("NOTIFICAÇÃO RECEBIDA");
-  console.log(JSON.stringify(req.body, null, 2));
+
+  console.log(
+    "NOTIFICAÇÃO RECEBIDA"
+  );
+
+  console.log(
+    JSON.stringify(
+      req.body,
+      null,
+      2
+    )
+  );
+
   console.log("====================================");
 
   res.status(200).json({
+
     recebido: true
+
   });
 
 });
 
 
 // =====================================================
-// LISTAR GRUPOS DO WHATSAPP
+// LISTAR GRUPOS
 // =====================================================
 
 app.get("/grupos", async (req, res) => {
 
-  if (!WHAPI_API_TOKEN) {
+  if (
+    !ZAPI_INSTANCE_ID ||
+    !ZAPI_TOKEN ||
+    !ZAPI_CLIENT_TOKEN
+  ) {
 
     return res.status(500).json({
-      erro: "WHAPI_API_TOKEN não configurado."
+
+      erro:
+        "Z-API não configurada corretamente."
+
     });
 
   }
 
   try {
 
-    const response = await fetch(
-      `${WHAPI_API_URL}/groups?count=100`,
-      {
+    const url =
+      `${ZAPI_URL}/instances/` +
+      `${ZAPI_INSTANCE_ID}/token/` +
+      `${ZAPI_TOKEN}/groups` +
+      `?page=1&pageSize=100`;
+
+    const response =
+      await fetch(url, {
+
         method: "GET",
 
         headers: {
-          Accept: "application/json",
-          Authorization:
-            `Bearer ${WHAPI_API_TOKEN}`
-        }
-      }
-    );
 
-    const data = await response.json();
+          Accept:
+            "application/json",
+
+          "Client-Token":
+            ZAPI_CLIENT_TOKEN
+
+        }
+
+      });
+
+    const data =
+      await response.json();
 
     if (!response.ok) {
 
@@ -111,8 +161,10 @@ app.get("/grupos", async (req, res) => {
     );
 
     res.status(500).json({
+
       erro:
         "Erro ao buscar grupos do WhatsApp."
+
     });
 
   }
@@ -126,13 +178,16 @@ app.get("/grupos", async (req, res) => {
 
 app.get("/ofertas", async (req, res) => {
 
-  const { q } = req.query;
+  const { q } =
+    req.query;
 
   if (!q) {
 
     return res.status(400).json({
+
       erro:
         "Informe o produto. Exemplo: /ofertas?q=celular"
+
     });
 
   }
@@ -160,58 +215,66 @@ app.get("/ofertas", async (req, res) => {
     }
 
     const ofertas =
-      (data.results || []).map((item) => {
+      (data.results || [])
+        .map((item) => {
 
-        let desconto = 0;
+          let desconto = 0;
 
-        if (
-          item.original_price &&
-          item.price &&
-          item.original_price > item.price
-        ) {
+          if (
+            item.original_price &&
+            item.price &&
+            item.original_price > item.price
+          ) {
 
-          desconto =
-            Math.round(
-              (
-                (item.original_price - item.price) /
-                item.original_price
-              ) * 100
-            );
+            desconto =
+              Math.round(
 
-        }
+                (
+                  (
+                    item.original_price -
+                    item.price
+                  ) /
+                  item.original_price
+                ) * 100
 
-        return {
+              );
 
-          item_id:
-            item.id || null,
+          }
 
-          titulo:
-            item.title || null,
+          return {
 
-          preco:
-            item.price ?? null,
+            item_id:
+              item.id || null,
 
-          preco_original:
-            item.original_price ?? null,
+            titulo:
+              item.title || null,
 
-          desconto,
+            preco:
+              item.price ?? null,
 
-          link:
-            item.permalink || null,
+            preco_original:
+              item.original_price ?? null,
 
-          imagem:
-            item.thumbnail || null,
+            desconto,
 
-          frete_gratis:
-            item.shipping?.free_shipping || false
+            link:
+              item.permalink || null,
 
-        };
+            imagem:
+              item.thumbnail || null,
 
-      });
+            frete_gratis:
+              item.shipping?.free_shipping ||
+              false
+
+          };
+
+        });
 
     res.json({
 
-      busca: q,
+      busca:
+        q,
 
       produtos_encontrados:
         data.paging?.total || 0,
@@ -231,8 +294,10 @@ app.get("/ofertas", async (req, res) => {
     );
 
     res.status(500).json({
+
       erro:
         "Erro ao buscar ofertas no Mercado Livre."
+
     });
 
   }
@@ -246,22 +311,36 @@ app.get("/ofertas", async (req, res) => {
 
 app.get("/enviar", async (req, res) => {
 
-  const { q } = req.query;
+  const { q } =
+    req.query;
+
+
+  // -------------------------------------------------
+  // VALIDAÇÕES
+  // -------------------------------------------------
 
   if (!q) {
 
     return res.status(400).json({
+
       erro:
         "Informe o produto. Exemplo: /enviar?q=celular"
+
     });
 
   }
 
-  if (!WHAPI_API_TOKEN) {
+  if (
+    !ZAPI_INSTANCE_ID ||
+    !ZAPI_TOKEN ||
+    !ZAPI_CLIENT_TOKEN
+  ) {
 
     return res.status(500).json({
+
       erro:
-        "WHAPI_API_TOKEN não configurado."
+        "Z-API não configurada corretamente no Render."
+
     });
 
   }
@@ -269,13 +348,17 @@ app.get("/enviar", async (req, res) => {
   if (!WHATSAPP_GROUP_ID) {
 
     return res.status(500).json({
+
       erro:
         "WHATSAPP_GROUP_ID não configurado no Render."
+
     });
 
   }
 
+
   try {
+
 
     // -------------------------------------------------
     // BUSCAR PRODUTOS
@@ -304,44 +387,62 @@ app.get("/enviar", async (req, res) => {
     const produtos =
       data.results || [];
 
-    if (produtos.length === 0) {
+
+    if (
+      produtos.length === 0
+    ) {
 
       return res.status(404).json({
+
         erro:
           "Nenhum produto encontrado."
+
       });
 
     }
 
 
     // -------------------------------------------------
-    // PROCURAR A MELHOR OFERTA
+    // PROCURAR MELHOR OFERTA
     // -------------------------------------------------
 
     const comDesconto =
       produtos
+
         .filter((item) =>
+
           item.original_price &&
           item.price &&
-          item.original_price > item.price
+          item.original_price >
+            item.price
+
         )
+
         .sort((a, b) => {
 
           const descontoA =
             (
-              (a.original_price - a.price) /
+              (
+                a.original_price -
+                a.price
+              ) /
               a.original_price
             ) * 100;
 
           const descontoB =
             (
-              (b.original_price - b.price) /
+              (
+                b.original_price -
+                b.price
+              ) /
               b.original_price
             ) * 100;
 
-          return descontoB - descontoA;
+          return descontoB -
+            descontoA;
 
         });
+
 
     const oferta =
       comDesconto[0] ||
@@ -355,17 +456,25 @@ app.get("/enviar", async (req, res) => {
     let desconto = 0;
 
     if (
+
       oferta.original_price &&
       oferta.price &&
-      oferta.original_price > oferta.price
+      oferta.original_price >
+        oferta.price
+
     ) {
 
       desconto =
         Math.round(
+
           (
-            (oferta.original_price - oferta.price) /
+            (
+              oferta.original_price -
+              oferta.price
+            ) /
             oferta.original_price
           ) * 100
+
         );
 
     }
@@ -380,11 +489,16 @@ app.get("/enviar", async (req, res) => {
         .toFixed(2)
         .replace(".", ",");
 
+
     const precoOriginal =
       oferta.original_price
-        ? Number(oferta.original_price)
-            .toFixed(2)
-            .replace(".", ",")
+
+        ? Number(
+            oferta.original_price
+          )
+          .toFixed(2)
+          .replace(".", ",")
+
         : null;
 
 
@@ -399,12 +513,14 @@ app.get("/enviar", async (req, res) => {
 
 💰 *Por R$ ${precoAtual}*`;
 
+
     if (precoOriginal) {
 
       mensagem +=
         `\n❌ De R$ ${precoOriginal}`;
 
     }
+
 
     if (desconto > 0) {
 
@@ -413,27 +529,36 @@ app.get("/enviar", async (req, res) => {
 
     }
 
-    if (oferta.shipping?.free_shipping) {
+
+    if (
+      oferta.shipping?.free_shipping
+    ) {
 
       mensagem +=
         `\n🚚 *Frete grátis*`;
 
     }
 
+
     mensagem +=
       `\n\n🔗 ${oferta.permalink}`;
+
 
     mensagem +=
       `\n\n⚡ *PromoRadar | Ofertas*`;
 
 
     // -------------------------------------------------
-    // ENVIAR PELO WHAPI
+    // ENVIAR PELA Z-API
     // -------------------------------------------------
 
     const envio =
       await fetch(
-        `${WHAPI_API_URL}/messages/text`,
+
+        `${ZAPI_URL}/instances/` +
+        `${ZAPI_INSTANCE_ID}/token/` +
+        `${ZAPI_TOKEN}/send-text`,
+
         {
 
           method: "POST",
@@ -443,27 +568,29 @@ app.get("/enviar", async (req, res) => {
             Accept:
               "application/json",
 
-            Authorization:
-              `Bearer ${WHAPI_API_TOKEN}`,
-
             "Content-Type":
-              "application/json"
+              "application/json",
+
+            "Client-Token":
+              ZAPI_CLIENT_TOKEN
 
           },
 
           body:
             JSON.stringify({
 
-              to:
+              phone:
                 WHATSAPP_GROUP_ID,
 
-              body:
+              message:
                 mensagem
 
             })
 
         }
+
       );
+
 
     const resultado =
       await envio.json();
@@ -476,7 +603,7 @@ app.get("/enviar", async (req, res) => {
     if (!envio.ok) {
 
       console.error(
-        "ERRO WHAPI:",
+        "ERRO Z-API:",
         resultado
       );
 
@@ -484,10 +611,11 @@ app.get("/enviar", async (req, res) => {
         .status(envio.status)
         .json({
 
-          enviado: false,
+          enviado:
+            false,
 
           erro:
-            "Erro ao enviar para o grupo.",
+            "Erro ao enviar para o grupo pela Z-API.",
 
           detalhes:
             resultado
@@ -503,7 +631,8 @@ app.get("/enviar", async (req, res) => {
 
     res.json({
 
-      enviado: true,
+      enviado:
+        true,
 
       grupo:
         WHATSAPP_GROUP_ID,
@@ -519,10 +648,11 @@ app.get("/enviar", async (req, res) => {
       link:
         oferta.permalink,
 
-      resposta_whapi:
+      resposta_zapi:
         resultado
 
     });
+
 
   } catch (error) {
 
@@ -533,7 +663,8 @@ app.get("/enviar", async (req, res) => {
 
     res.status(500).json({
 
-      enviado: false,
+      enviado:
+        false,
 
       erro:
         "Erro ao processar e enviar a oferta."
@@ -550,12 +681,18 @@ app.get("/enviar", async (req, res) => {
 // =====================================================
 
 app.listen(
+
   PORT,
+
   () => {
 
     console.log(
-      `Servidor PromoRadar rodando na porta ${PORT}`
+
+      `Servidor PromoRadar ` +
+      `rodando na porta ${PORT}`
+
     );
 
   }
+
 );
