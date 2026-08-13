@@ -212,8 +212,13 @@ app.get("/ofertas", async (req, res) => {
       "&limit=20" +
       "&sort=price_asc";
 
-    const response =
-      await fetch(url);
+    const response = await fetch(url, {
+    method: "GET",
+    headers: {
+        "Authorization": `Bearer ${mlAccessToken}`,
+        "Accept": "application/json"
+    }
+});
 
     const data =
       await response.json();
