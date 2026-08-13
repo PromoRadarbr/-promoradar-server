@@ -309,25 +309,22 @@ app.get("/ofertas", async (req, res) => {
 // ENVIAR OFERTA PARA O GRUPO
 // =====================================================
 
+// =====================================================
+// ENVIAR OFERTA PARA O GRUPO PELO Z-API
+// =====================================================
+
 app.get("/enviar", async (req, res) => {
 
-  const { q } =
-    req.query;
-
+  const { q } = req.query;
 
   // -------------------------------------------------
   // VALIDAÇÕES
   // -------------------------------------------------
 
   if (!q) {
-
     return res.status(400).json({
-
-      erro:
-        "Informe o produto. Exemplo: /enviar?q=celular"
-
+      erro: "Informe o produto. Exemplo: /enviar?q=celular"
     });
-
   }
 
   if (
@@ -335,33 +332,21 @@ app.get("/enviar", async (req, res) => {
     !ZAPI_TOKEN ||
     !ZAPI_CLIENT_TOKEN
   ) {
-
     return res.status(500).json({
-
-      erro:
-        "Z-API não configurada corretamente no Render."
-
+      erro: "Credenciais da Z-API não configuradas corretamente no Render."
     });
-
   }
 
   if (!WHATSAPP_GROUP_ID) {
-
     return res.status(500).json({
-
-      erro:
-        "WHATSAPP_GROUP_ID não configurado no Render."
-
+      erro: "WHATSAPP_GROUP_ID não configurado no Render."
     });
-
   }
-
 
   try {
 
-
     // -------------------------------------------------
-    // BUSCAR PRODUTOS
+    // BUSCAR PRODUTOS NO MERCADO LIVRE
     // -------------------------------------------------
 
     const url =
@@ -370,84 +355,51 @@ app.get("/enviar", async (req, res) => {
       "&limit=20" +
       "&sort=price_asc";
 
-    const response =
-      await fetch(url);
+    const response = await fetch(url);
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
     if (!response.ok) {
-
       return res
         .status(response.status)
         .json(data);
-
     }
 
-    const produtos =
-      data.results || [];
+    const produtos = data.results || [];
 
-
-    if (
-      produtos.length === 0
-    ) {
-
+    if (produtos.length === 0) {
       return res.status(404).json({
-
-        erro:
-          "Nenhum produto encontrado."
-
+        erro: "Nenhum produto encontrado."
       });
-
     }
-
 
     // -------------------------------------------------
     // PROCURAR MELHOR OFERTA
     // -------------------------------------------------
 
-    const comDesconto =
-      produtos
+    const comDesconto = produtos
+      .filter((item) =>
+        item.original_price &&
+        item.price &&
+        item.original_price > item.price
+      )
+      .sort((a, b) => {
 
-        .filter((item) =>
+        const descontoA =
+          ((a.original_price - a.price) /
+            a.original_price) * 100;
 
-          item.original_price &&
-          item.price &&
-          item.original_price >
-            item.price
+        const descontoB =
+          ((b.original_price - b.price) /
+            b.original_price) * 100;
 
-        )
+        return descontoB - descontoA;
 
-        .sort((a, b) => {
-
-          const descontoA =
-            (
-              (
-                a.original_price -
-                a.price
-              ) /
-              a.original_price
-            ) * 100;
-
-          const descontoB =
-            (
-              (
-                b.original_price -
-                b.price
-              ) /
-              b.original_price
-            ) * 100;
-
-          return descontoB -
-            descontoA;
-
-        });
-
+      });
 
     const oferta =
       comDesconto[0] ||
       produtos[0];
-
 
     // -------------------------------------------------
     // CALCULAR DESCONTO
@@ -456,29 +408,19 @@ app.get("/enviar", async (req, res) => {
     let desconto = 0;
 
     if (
-
       oferta.original_price &&
       oferta.price &&
-      oferta.original_price >
-        oferta.price
-
+      oferta.original_price > oferta.price
     ) {
 
-      desconto =
-        Math.round(
-
-          (
-            (
-              oferta.original_price -
-              oferta.price
-            ) /
-            oferta.original_price
-          ) * 100
-
-        );
+      desconto = Math.round(
+        (
+          (oferta.original_price - oferta.price) /
+          oferta.original_price
+        ) * 100
+      );
 
     }
-
 
     // -------------------------------------------------
     // FORMATAR PREÇOS
@@ -489,18 +431,12 @@ app.get("/enviar", async (req, res) => {
         .toFixed(2)
         .replace(".", ",");
 
-
     const precoOriginal =
       oferta.original_price
-
-        ? Number(
-            oferta.original_price
-          )
-          .toFixed(2)
-          .replace(".", ",")
-
+        ? Number(oferta.original_price)
+            .toFixed(2)
+            .replace(".", ",")
         : null;
-
 
     // -------------------------------------------------
     // MONTAR MENSAGEM
@@ -513,88 +449,52 @@ app.get("/enviar", async (req, res) => {
 
 💰 *Por R$ ${precoAtual}*`;
 
-
     if (precoOriginal) {
-
       mensagem +=
         `\n❌ De R$ ${precoOriginal}`;
-
     }
-
 
     if (desconto > 0) {
-
       mensagem +=
         `\n📉 *${desconto}% OFF*`;
-
     }
 
-
-    if (
-      oferta.shipping?.free_shipping
-    ) {
-
+    if (oferta.shipping?.free_shipping) {
       mensagem +=
         `\n🚚 *Frete grátis*`;
-
     }
-
 
     mensagem +=
       `\n\n🔗 ${oferta.permalink}`;
 
-
     mensagem +=
       `\n\n⚡ *PromoRadar | Ofertas*`;
 
-
     // -------------------------------------------------
-    // ENVIAR PELA Z-API
+    // ENVIAR PELO Z-API
     // -------------------------------------------------
 
-    const envio =
-      await fetch(
+    const zapiUrl =
+      `${ZAPI_URL}/instances/${ZAPI_INSTANCE_ID}` +
+      `/token/${ZAPI_TOKEN}/send-text`;
 
-        `${ZAPI_URL}/instances/` +
-        `${ZAPI_INSTANCE_ID}/token/` +
-        `${ZAPI_TOKEN}/send-text`,
+    const envio = await fetch(zapiUrl, {
 
-        {
+      method: "POST",
 
-          method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Client-Token": ZAPI_CLIENT_TOKEN
+      },
 
-          headers: {
+      body: JSON.stringify({
+        phone: WHATSAPP_GROUP_ID,
+        message: mensagem
+      })
 
-            Accept:
-              "application/json",
+    });
 
-            "Content-Type":
-              "application/json",
-
-            "Client-Token":
-              ZAPI_CLIENT_TOKEN
-
-          },
-
-          body:
-            JSON.stringify({
-
-              phone:
-                WHATSAPP_GROUP_ID,
-
-              message:
-                mensagem
-
-            })
-
-        }
-
-      );
-
-
-    const resultado =
-      await envio.json();
-
+    const resultado = await envio.json();
 
     // -------------------------------------------------
     // VERIFICAR ENVIO
@@ -611,19 +511,15 @@ app.get("/enviar", async (req, res) => {
         .status(envio.status)
         .json({
 
-          enviado:
-            false,
+          enviado: false,
 
-          erro:
-            "Erro ao enviar para o grupo pela Z-API.",
+          erro: "Erro ao enviar oferta pelo Z-API.",
 
-          detalhes:
-            resultado
+          detalhes: resultado
 
         });
 
     }
-
 
     // -------------------------------------------------
     // SUCESSO
@@ -631,28 +527,19 @@ app.get("/enviar", async (req, res) => {
 
     res.json({
 
-      enviado:
-        true,
+      enviado: true,
 
-      grupo:
-        WHATSAPP_GROUP_ID,
+      resultado: resultado,
 
-      produto:
-        oferta.title,
+      produto: oferta.title,
 
-      preco:
-        oferta.price,
+      preco: oferta.price,
 
-      desconto,
+      desconto: desconto,
 
-      link:
-        oferta.permalink,
-
-      resposta_zapi:
-        resultado
+      link: oferta.permalink
 
     });
-
 
   } catch (error) {
 
@@ -663,8 +550,7 @@ app.get("/enviar", async (req, res) => {
 
     res.status(500).json({
 
-      enviado:
-        false,
+      enviado: false,
 
       erro:
         "Erro ao processar e enviar a oferta."
