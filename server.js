@@ -413,13 +413,7 @@ app.get("/enviar", async (req, res) => {
       "&limit=20" +
       "&sort=price_asc";
 
-    const response = await fetch(url, {
-  method: "GET",
-  headers: {
-    "Authorization": `Bearer ${mlAccessToken}`,
-    "Accept": "application/json"
-  }
-});
+    const response = await fetch(url);
 
     const data = await response.json();
 
